@@ -85,12 +85,13 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 	 * Call this every frame after physics update.
 	 */
 	updateIsoPosition(): void {
-		// Convert cartesian center to tile-fraction coordinates
+		// Convert cartesian pixel position to tile-fraction coordinates
 		const tileXFrac = this.cartX / TILE_SIZE;
 		const tileYFrac = this.cartY / TILE_SIZE;
 
-		// Project to isometric screen space
-		const iso = cartToIso(this.cartX, this.cartY);
+		// Project to isometric screen space using tile coordinates
+		// (same coordinate space as MapRenderer.renderMap)
+		const iso = cartToIso(tileXFrac, tileYFrac);
 
 		// Set the sprite's visual position (overrides the physics default)
 		this.setPosition(iso.x, iso.y);

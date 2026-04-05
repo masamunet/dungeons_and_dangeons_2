@@ -28,5 +28,8 @@ export function StartGame(parent: string | HTMLElement): Phaser.Game {
 		scene: [BootScene, DungeonScene],
 	};
 
-	return new Phaser.Game(config);
+	const game = new Phaser.Game(config);
+	// Expose for debugging
+	(window as any).__PHASER_GAME__ = game;
+	return game;
 }

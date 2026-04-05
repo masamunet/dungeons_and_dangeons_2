@@ -163,11 +163,11 @@ export class DungeonScene extends Scene {
 	}
 
 	private computeIsoBounds(mapW: number, mapH: number): { minX: number; minY: number; width: number; height: number } {
-		// The four corners of the cartesian map in iso space
+		// The four corners of the cartesian map in iso space (tile coordinates)
 		const topLeft = cartToIso(0, 0);
-		const topRight = cartToIso(mapW * TILE_SIZE, 0);
-		const bottomLeft = cartToIso(0, mapH * TILE_SIZE);
-		const bottomRight = cartToIso(mapW * TILE_SIZE, mapH * TILE_SIZE);
+		const topRight = cartToIso(mapW, 0);
+		const bottomLeft = cartToIso(0, mapH);
+		const bottomRight = cartToIso(mapW, mapH);
 
 		const minX = Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
 		const maxX = Math.max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
@@ -201,8 +201,8 @@ export class DungeonScene extends Scene {
 		knockback: number; range: number;
 		facingX: number; facingY: number;
 	}): void {
-		// Show attack visual at isometric position
-		const isoPos = cartToIso(data.cartX, data.cartY);
+		// Show attack visual at isometric position (convert pixel to tile coords)
+		const isoPos = cartToIso(data.cartX / TILE_SIZE, data.cartY / TILE_SIZE);
 		const hitCircle = this.add.circle(isoPos.x, isoPos.y, data.range * 0.6, 0xff4444, 0.3);
 		hitCircle.setDepth(1000);
 		this.tweens.add({
@@ -224,7 +224,7 @@ export class DungeonScene extends Scene {
 				enemy.applyHit(data.damage, (dx / len) * data.knockback, (dy / len) * data.knockback);
 
 				// Damage number at isometric position
-				const enemyIso = cartToIso(enemy.cartX, enemy.cartY);
+				const enemyIso = cartToIso(enemy.cartX / TILE_SIZE, enemy.cartY / TILE_SIZE);
 				this.showDamageNumber(enemyIso.x, enemyIso.y - 20, data.damage);
 			}
 		}

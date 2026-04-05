@@ -7,14 +7,12 @@ export class BootScene extends Scene {
 		super('BootScene');
 	}
 
-	preload(): void {
+	create(): void {
 		this.generateIsoTileTextures();
 		this.generatePlayerTexture();
 		this.generateEnemyTexture();
 		this.generateShadowTexture();
-	}
 
-	create(): void {
 		eventBridge.emit(GameEvents.CURRENT_SCENE_READY, { scene: 'BootScene' });
 		this.scene.start('DungeonScene');
 	}
