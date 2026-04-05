@@ -86,20 +86,22 @@ export class MapRenderer {
 	 * Diablo 1 style: walls near the player that could occlude them become transparent.
 	 */
 	updateWallTransparency(playerTileX: number, playerTileY: number): void {
-		const playerSum = playerTileX + playerTileY;
-
 		for (const [key, sprites] of this.wallSprites) {
 			const [wx, wy] = key.split(',').map(Number);
-			const dx = Math.abs(wx - playerTileX);
-			const dy = Math.abs(wy - playerTileY);
-			const wallSum = wx + wy;
+			const dx = wx - playerTileX;
+			const dy = wy - playerTileY;
 
-			// Wall is south of player (closer to camera) and nearby
-			const shouldFade = dx + dy < 3 && wallSum > playerSum && wallSum <= playerSum + 3;
-			const alpha = shouldFade ? 0.3 : 1.0;
+			// Only fade walls that are:
+			// 1. Close to the player (within ~2 tiles manhattan)
+			// 2. Between the player and the camera (wall is south = higher x+y)
+			//    → dx + dy > 0 means wall's (x+y) > player's (x+y)
+			// 3. Not too far south (within 2 tiles south)
+			const dist = Math.abs(dx) + Math.abs(dy);
+			const wallIsSouth = (dx + dy) > -0.5; // wall is south of or at player row
+			const shouldFade = dist < 2.5 && wallIsSouth && (dx + dy) < 2.5;
 
 			for (const sprite of sprites) {
-				sprite.setAlpha(alpha);
+				sprite.setAlpha(shouldFade ? 0.3 : 1.0);
 			}
 		}
 	}
