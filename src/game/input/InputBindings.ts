@@ -7,6 +7,7 @@ export const DEFAULT_KEYBOARD_BINDINGS: Record<InputAction, string[]> = {
 	[InputAction.MOVE_RIGHT]: ['D', 'RIGHT'],
 	[InputAction.ATTACK]: ['J', 'SPACE'],
 	[InputAction.DODGE]: ['K', 'SHIFT'],
+	[InputAction.GUARD]: ['L'],
 	[InputAction.INTERACT]: ['E'],
 	[InputAction.PAUSE]: ['ESC'],
 	[InputAction.INVENTORY]: ['I', 'TAB'],
@@ -23,6 +24,7 @@ export const DEFAULT_GAMEPAD_BINDINGS: Record<InputAction, number[]> = {
 	[InputAction.MOVE_RIGHT]: [15],  // D-pad right
 	[InputAction.ATTACK]: [0],       // A / Cross
 	[InputAction.DODGE]: [1],        // B / Circle
+	[InputAction.GUARD]: [4],        // LB / L1
 	[InputAction.INTERACT]: [3],     // Y / Triangle
 	[InputAction.PAUSE]: [9],        // Start
 	[InputAction.INVENTORY]: [8],    // Select/Back

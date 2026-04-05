@@ -3,7 +3,7 @@ import { HealthComponent } from './components/HealthComponent';
 import { cartToIso, isoDepth } from '../iso/IsoHelper';
 import { TILE_SIZE } from '$lib/utils/constants';
 
-export type EntityState = 'idle' | 'moving' | 'attacking' | 'dodging' | 'hit_stun' | 'dead';
+export type EntityState = 'idle' | 'moving' | 'attacking' | 'dodging' | 'guarding' | 'hit_stun' | 'staggered' | 'dead';
 
 /**
  * Base entity using a dual-coordinate system:
@@ -35,9 +35,10 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		this.setCollideWorldBounds(false);
 
 		// Create visible sprite for isometric rendering
-		// Origin at bottom-center so feet align with tile position
+		// Origin: feet are at ~87.5% of sprite height (21/24px for 24px sprites)
+		// This places feet exactly at the isometric tile center
 		this.visual = scene.add.image(0, 0, texture);
-		this.visual.setOrigin(0.5, 1.0);
+		this.visual.setOrigin(0.5, 0.875);
 
 		// Create shadow
 		if (scene.textures.exists('shadow')) {

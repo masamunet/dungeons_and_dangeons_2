@@ -35,19 +35,25 @@ export class MapRenderer {
 					case TileType.WALL: {
 						if (!this.isAdjacentToWalkable(dungeonMap, x, y)) break;
 
-						// Wall TOP: diamond face, low depth (floor-level)
-						const topImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall_top');
-						topImg.setDepth(depth + 2);
+						// Wall TOP: diamond face, slightly above floor
+						scene.add.image(isoPos.x, isoPos.y, 'tile_wall_top').setDepth(depth + 2);
 
-						// Wall SIDES: extrusion, high depth to occlude entities behind
-						const sidesImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall_sides');
-						// Origin: pin so the diamond area of the texture aligns with the tile position
-						// The texture is 64x56. The diamond top area occupies y=0..32, sides occupy y=16..56.
-						// We want the center of the diamond (y=16 in texture) at the tile position.
-						sidesImg.setOrigin(0.5, (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
-						sidesImg.setDepth(depth + 14);
+						// Wall SIDES: only render if there's a walkable tile to the south
+						// (i.e. this wall edge faces the camera and needs visible extrusion)
+						const hasSouthFloor =
+							dungeonMap.isWalkable(x + 1, y) ||  // iso-south-east
+							dungeonMap.isWalkable(x, y + 1) ||  // iso-south-west
+							dungeonMap.isWalkable(x + 1, y + 1); // iso-south
 
-						this.wallSides.set(`${x},${y}`, sidesImg);
+						if (hasSouthFloor) {
+							const sidesImg = scene.add.image(
+								isoPos.x,
+								isoPos.y + WALL_EXTRA_HEIGHT / 2,
+								'tile_wall_sides'
+							);
+							sidesImg.setDepth(depth + 14);
+							this.wallSides.set(`${x},${y}`, sidesImg);
+						}
 						break;
 					}
 				}

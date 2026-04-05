@@ -19,6 +19,22 @@ export const PLAYER_CONFIG = {
 	attackRange: 28,
 	attackArc: 90,
 	attackKnockback: 80,
+
+	// Guard / Parry
+	guardStaminaCostPerHit: 12,
+	guardDamageReduction: 0.7,      // 70% damage reduction while guarding
+	guardSpeedMultiplier: 0.4,      // 40% speed while guarding
+	parryWindowMs: 150,             // First 150ms of guard = parry window
+	parryStaminaRecover: 10,        // Stamina recovered on successful parry
+	parryStunDurationMs: 800,       // How long enemy is stunned after parry
+
+	// Just Dodge
+	justDodgeWindowMs: 100,         // First 100ms of dodge = just-dodge window
+	justDodgeSlowMoMs: 300,         // Slow-mo duration on just-dodge
+
+	// Stagger
+	staggerChance: 0.2,             // 20% chance to stagger on hit
+	staggerDurationMs: 500,         // Stagger duration
 };
 
 export const ENEMY_CONFIG = {

@@ -70,9 +70,8 @@ export class HubScene extends Scene {
 					// Wall TOP face
 					this.add.image(iso.x, iso.y, 'tile_wall_top')
 						.setDepth(isoDepth(x, y) + 2);
-					// Wall SIDE extrusion
-					const sides = this.add.image(iso.x, iso.y, 'tile_wall_sides');
-					sides.setOrigin(0.5, (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + 24));
+					// Wall SIDE extrusion (shift down by half extrusion height to align with top)
+					const sides = this.add.image(iso.x, iso.y + 12, 'tile_wall_sides');
 					sides.setDepth(isoDepth(x, y) + 14);
 				} else {
 					const floorImg = this.add.image(iso.x, iso.y, 'tile_floor');
@@ -107,7 +106,7 @@ export class HubScene extends Scene {
 		this.playerCartY = this.playerTileY * 32 + 16;
 		const iso = cartToIso(this.playerTileX, this.playerTileY);
 		this.playerVisual = this.add.image(iso.x, iso.y, 'player');
-		this.playerVisual.setOrigin(0.5, 1.0);
+		this.playerVisual.setOrigin(0.5, 0.875);
 		this.playerVisual.setDepth(isoDepth(this.playerTileX, this.playerTileY, 1));
 
 		this.cameras.main.startFollow(this.playerVisual, true, 0.1, 0.1);
@@ -134,7 +133,7 @@ export class HubScene extends Scene {
 			} else {
 				// NPC sprite (reuse enemy skeleton for now, tinted)
 				const img = this.add.image(iso.x, iso.y, 'enemy_skeleton');
-				img.setOrigin(0.5, 1.0);
+				img.setOrigin(0.5, 0.875);
 				img.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
 				if (npc.role === 'blacksmith') img.setTint(0xff8844);
 				if (npc.role === 'alchemist') img.setTint(0x44ff88);

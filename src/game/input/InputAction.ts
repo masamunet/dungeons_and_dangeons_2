@@ -5,6 +5,7 @@ export enum InputAction {
 	MOVE_RIGHT = 'MOVE_RIGHT',
 	ATTACK = 'ATTACK',
 	DODGE = 'DODGE',
+	GUARD = 'GUARD',
 	INTERACT = 'INTERACT',
 	PAUSE = 'PAUSE',
 	INVENTORY = 'INVENTORY',
