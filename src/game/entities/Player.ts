@@ -5,6 +5,7 @@ import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 import { PLAYER_CONFIG } from '../config/gameConfig';
+import { screenDirToCart } from '../iso/IsoHelper';
 import {
 	DODGE_SPEED, DODGE_DURATION, DODGE_IFRAME_START,
 	DODGE_IFRAME_DURATION, DODGE_STAMINA_COST, DODGE_COOLDOWN
@@ -74,22 +75,25 @@ export class Player extends Entity {
 				break;
 		}
 
-		this.updateDepth();
+		this.updateIsoPosition();
 	}
 
 	private handleMovement(): void {
-		const movement = this.inputManager.getMovementVector();
+		const screenMove = this.inputManager.getMovementVector();
 
-		if (movement.length() > 0.1) {
-			this.setVelocity(movement.x * PLAYER_CONFIG.speed, movement.y * PLAYER_CONFIG.speed);
-			this.facing.set(movement.x, movement.y).normalize();
+		if (screenMove.length() > 0.1) {
+			// Convert screen-space input to cartesian world direction
+			const cartDir = screenDirToCart(screenMove.x, screenMove.y);
+			const body = this.body as Phaser.Physics.Arcade.Body;
+			body.setVelocity(cartDir.x * PLAYER_CONFIG.speed, cartDir.y * PLAYER_CONFIG.speed);
+			this.facing.set(cartDir.x, cartDir.y);
 			this.setState('moving');
 
-			// Flip sprite based on horizontal direction
-			if (movement.x < -0.1) this.setFlipX(true);
-			else if (movement.x > 0.1) this.setFlipX(false);
+			// Flip sprite based on screen-space horizontal direction
+			if (screenMove.x < -0.1) this.setFlipX(true);
+			else if (screenMove.x > 0.1) this.setFlipX(false);
 		} else {
-			this.setVelocity(0, 0);
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 			if (this.currentState === 'moving') this.setState('idle');
 		}
 	}
@@ -109,7 +113,7 @@ export class Player extends Entity {
 		this.setState('attacking');
 		this.attackPhase = 'windup';
 		this.attackTimer = PLAYER_CONFIG.attackWindup;
-		this.setVelocity(0, 0);
+		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 		this.setTint(0xffff88); // Visual feedback: windup
 	}
 
@@ -139,10 +143,10 @@ export class Player extends Entity {
 	}
 
 	private emitAttackHitbox(): void {
-		// Emit event for CombatSystem to create a temporary hitbox
+		// Emit attack using cartesian coordinates (game logic space)
 		this.scene.events.emit('player-attack', {
-			x: this.x + this.facing.x * PLAYER_CONFIG.attackRange,
-			y: this.y + this.facing.y * PLAYER_CONFIG.attackRange,
+			cartX: this.cartX + this.facing.x * PLAYER_CONFIG.attackRange,
+			cartY: this.cartY + this.facing.y * PLAYER_CONFIG.attackRange,
 			damage: PLAYER_CONFIG.attackDamage,
 			knockback: PLAYER_CONFIG.attackKnockback,
 			range: PLAYER_CONFIG.attackRange,
@@ -156,8 +160,13 @@ export class Player extends Entity {
 		if (!this.stamina.canSpend(DODGE_STAMINA_COST)) return;
 		this.stamina.spend(DODGE_STAMINA_COST);
 
-		const movement = this.inputManager.getMovementVector();
-		this.dodgeDirection = movement.length() > 0.1 ? movement.clone() : this.facing.clone();
+		const screenMove = this.inputManager.getMovementVector();
+		if (screenMove.length() > 0.1) {
+			const cartDir = screenDirToCart(screenMove.x, screenMove.y);
+			this.dodgeDirection.set(cartDir.x, cartDir.y);
+		} else {
+			this.dodgeDirection = this.facing.clone();
+		}
 		this.dodgeDirection.normalize();
 
 		this.setState('dodging');
@@ -170,13 +179,14 @@ export class Player extends Entity {
 	}
 
 	private handleDodgeState(delta: number): void {
+		const body = this.body as Phaser.Physics.Arcade.Body;
 		if (this.stateTimer < DODGE_DURATION) {
-			this.setVelocity(
+			body.setVelocity(
 				this.dodgeDirection.x * DODGE_SPEED,
 				this.dodgeDirection.y * DODGE_SPEED
 			);
 		} else {
-			this.setVelocity(0, 0);
+			body.setVelocity(0, 0);
 			this.setAlpha(1);
 			this.isInvincible = false;
 			this.setState('idle');
@@ -203,7 +213,7 @@ export class Player extends Entity {
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
 			this.setState('hit_stun');
-			this.setVelocity(knockbackX, knockbackY);
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
 			this.setTint(0xff0000);
 			this.scene.time.delayedCall(200, () => this.clearTint());
 		}

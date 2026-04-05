@@ -38,7 +38,7 @@ export class Enemy extends Entity {
 
 	update(_time: number, delta: number): void {
 		if (this.currentState === 'dead') {
-			this.setVelocity(0, 0);
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 			this.setAlpha(0.3);
 			return;
 		}
@@ -47,7 +47,7 @@ export class Enemy extends Entity {
 		this.aiTimer += delta;
 
 		const distToPlayer = this.target
-			? Phaser.Math.Distance.Between(this.x, this.y, this.target.x, this.target.y)
+			? Phaser.Math.Distance.Between(this.cartX, this.cartY, this.target.cartX, this.target.cartY)
 			: Infinity;
 
 		switch (this.aiState) {
@@ -61,7 +61,7 @@ export class Enemy extends Entity {
 				this.updateAttack(delta);
 				break;
 			case 'cooldown':
-				this.setVelocity(0, 0);
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 				if (this.aiTimer > 500) {
 					this.aiState = 'chase';
 					this.aiTimer = 0;
@@ -69,7 +69,7 @@ export class Enemy extends Entity {
 				break;
 		}
 
-		this.updateDepth();
+		this.updateIsoPosition();
 	}
 
 	private updatePatrol(_delta: number, distToPlayer: number): void {
@@ -86,13 +86,13 @@ export class Enemy extends Entity {
 			this.patrolDirection.set(Math.cos(angle), Math.sin(angle));
 		}
 
-		// Stay near home
-		const distHome = Phaser.Math.Distance.Between(this.x, this.y, this.homeX, this.homeY);
+		// Stay near home (cartesian space)
+		const distHome = Phaser.Math.Distance.Between(this.cartX, this.cartY, this.homeX, this.homeY);
 		if (distHome > 60) {
-			this.patrolDirection.set(this.homeX - this.x, this.homeY - this.y).normalize();
+			this.patrolDirection.set(this.homeX - this.cartX, this.homeY - this.cartY).normalize();
 		}
 
-		this.setVelocity(
+		(this.body as Phaser.Physics.Arcade.Body).setVelocity(
 			this.patrolDirection.x * this.config.speed * 0.5,
 			this.patrolDirection.y * this.config.speed * 0.5
 		);
@@ -117,18 +117,18 @@ export class Enemy extends Entity {
 			this.aiTimer = 0;
 			this.attackPhase = 'windup';
 			this.attackTimer = this.config.attackWindup;
-			this.setVelocity(0, 0);
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 			this.setTint(0xffaa00); // Telegraph: windup glow
 			return;
 		}
 
-		// Move toward player
-		const dx = this.target.x - this.x;
-		const dy = this.target.y - this.y;
+		// Move toward player (cartesian space)
+		const dx = this.target.cartX - this.cartX;
+		const dy = this.target.cartY - this.cartY;
 		const dist = Math.sqrt(dx * dx + dy * dy);
 		if (dist > 0) {
 			this.facing.set(dx / dist, dy / dist);
-			this.setVelocity(
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(
 				this.facing.x * this.config.speed,
 				this.facing.y * this.config.speed
 			);
@@ -168,10 +168,10 @@ export class Enemy extends Entity {
 
 	private performAttack(): void {
 		if (!this.target) return;
-		const dist = Phaser.Math.Distance.Between(this.x, this.y, this.target.x, this.target.y);
+		const dist = Phaser.Math.Distance.Between(this.cartX, this.cartY, this.target.cartX, this.target.cartY);
 		if (dist < this.config.attackRange + 16) {
-			const dx = this.target.x - this.x;
-			const dy = this.target.y - this.y;
+			const dx = this.target.cartX - this.cartX;
+			const dy = this.target.cartY - this.cartY;
 			const len = Math.sqrt(dx * dx + dy * dy) || 1;
 			this.target.applyHit(
 				this.config.damage,
@@ -185,7 +185,7 @@ export class Enemy extends Entity {
 		if (this.isInState('dead')) return;
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
-			this.setVelocity(knockbackX, knockbackY);
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
 			this.setTint(0xff0000);
 			this.scene.time.delayedCall(150, () => {
 				if (this.active) this.clearTint();

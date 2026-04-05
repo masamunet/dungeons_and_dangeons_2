@@ -1,43 +1,49 @@
-import { Scene, Tilemaps } from 'phaser';
+import { Scene } from 'phaser';
 import { DungeonMap, TileType } from './DungeonMap';
-import { TILE_SIZE } from '$lib/utils/constants';
+import { tileToIso, isoDepth, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
+
+const WALL_EXTRA_HEIGHT = 24;
 
 export class MapRenderer {
-	createTilemap(scene: Scene, dungeonMap: DungeonMap): Tilemaps.Tilemap {
-		const mapData = new Tilemaps.MapData({
-			width: dungeonMap.width,
-			height: dungeonMap.height,
-			tileWidth: TILE_SIZE,
-			tileHeight: TILE_SIZE,
-		});
+	/**
+	 * Render the dungeon map in isometric projection.
+	 * Tiles are placed using isometric coordinates for visuals.
+	 * Returns an array of wall tile positions for collision body creation.
+	 */
+	renderMap(scene: Scene, dungeonMap: DungeonMap): { wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> } {
+		const wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> = [];
 
-		const tilemap = new Tilemaps.Tilemap(scene, mapData);
-
-		// Create a tileset from generated textures - use a canvas-based approach
-		// We'll use simple sprites for each tile instead of a tilemap for flexibility with generated textures
-		const groundLayer = scene.add.group();
-		const wallLayer = scene.add.group();
-
+		// Render back-to-front for proper depth (top-left tile first in iso)
 		for (let y = 0; y < dungeonMap.height; y++) {
 			for (let x = 0; x < dungeonMap.width; x++) {
 				const tile = dungeonMap.getTile(x, y);
-				const px = x * TILE_SIZE + TILE_SIZE / 2;
-				const py = y * TILE_SIZE + TILE_SIZE / 2;
+				const isoPos = tileToIso(x, y);
+				const depth = isoDepth(x, y);
 
 				switch (tile) {
-					case TileType.FLOOR:
-						groundLayer.add(scene.add.image(px, py, 'tile_floor').setDepth(0));
+					case TileType.FLOOR: {
+						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_floor');
+						img.setDepth(depth);
 						break;
-					case TileType.CORRIDOR:
-						groundLayer.add(scene.add.image(px, py, 'tile_corridor').setDepth(0));
+					}
+					case TileType.CORRIDOR: {
+						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_corridor');
+						img.setDepth(depth);
 						break;
-					case TileType.STAIRS_DOWN:
-						groundLayer.add(scene.add.image(px, py, 'tile_stairs_down').setDepth(0));
+					}
+					case TileType.STAIRS_DOWN: {
+						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_stairs_down');
+						img.setDepth(depth);
 						break;
+					}
 					case TileType.WALL: {
-						// Only render walls adjacent to walkable tiles (visible walls)
 						if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
-							wallLayer.add(scene.add.image(px, py, 'tile_wall').setDepth(1));
+							// Wall has extra height, anchor at bottom of the diamond face
+							const wallImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall');
+							// Offset upward by half the wall extra height so the base aligns
+							wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
+							wallImg.setDepth(depth + 1);
+							wallPositions.push({ x: isoPos.x, y: isoPos.y, tileX: x, tileY: y });
 						}
 						break;
 					}
@@ -45,31 +51,7 @@ export class MapRenderer {
 			}
 		}
 
-		return tilemap;
-	}
-
-	createCollisionBodies(scene: Scene, dungeonMap: DungeonMap): Phaser.Physics.Arcade.StaticGroup {
-		const walls = scene.physics.add.staticGroup();
-
-		for (let y = 0; y < dungeonMap.height; y++) {
-			for (let x = 0; x < dungeonMap.width; x++) {
-				if (!dungeonMap.isWalkable(x, y)) {
-					// Only add collision for walls near walkable tiles
-					if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
-						const wall = walls.create(
-							x * TILE_SIZE + TILE_SIZE / 2,
-							y * TILE_SIZE + TILE_SIZE / 2,
-							'tile_wall'
-						) as Phaser.Physics.Arcade.Sprite;
-						wall.setVisible(true);
-						wall.setDepth(1);
-						wall.refreshBody();
-					}
-				}
-			}
-		}
-
-		return walls;
+		return { wallPositions };
 	}
 
 	private isAdjacentToWalkable(map: DungeonMap, x: number, y: number): boolean {

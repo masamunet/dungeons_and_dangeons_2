@@ -1,6 +1,6 @@
 import { Scene } from 'phaser';
 import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
-import { TILE_SIZE } from '$lib/utils/constants';
+import { ISO_TILE_WIDTH, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
 
 export class BootScene extends Scene {
 	constructor() {
@@ -8,10 +8,10 @@ export class BootScene extends Scene {
 	}
 
 	preload(): void {
-		// Generate all placeholder textures programmatically
-		this.generateTileTextures();
+		this.generateIsoTileTextures();
 		this.generatePlayerTexture();
 		this.generateEnemyTexture();
+		this.generateShadowTexture();
 	}
 
 	create(): void {
@@ -19,76 +19,114 @@ export class BootScene extends Scene {
 		this.scene.start('DungeonScene');
 	}
 
-	private generateTileTextures(): void {
-		const T = TILE_SIZE;
+	private generateIsoTileTextures(): void {
+		const W = ISO_TILE_WIDTH;
+		const H = ISO_TILE_HEIGHT;
+		const WALL_HEIGHT = 24; // Vertical height for wall sides
 
-		// Floor tile - dark stone
-		const floor = this.make.graphics({ add: false });
-		floor.fillStyle(0x2a2a3a);
-		floor.fillRect(0, 0, T, T);
-		floor.lineStyle(1, 0x1a1a2a);
-		floor.strokeRect(0, 0, T, T);
-		// Add subtle stone texture dots
-		floor.fillStyle(0x252535);
-		floor.fillRect(4, 4, 2, 2);
-		floor.fillRect(14, 8, 2, 2);
-		floor.fillRect(24, 20, 2, 2);
-		floor.fillRect(8, 26, 2, 2);
-		floor.generateTexture('tile_floor', T, T);
-		floor.destroy();
+		// --- Floor tile: dark stone diamond ---
+		this.makeIsoDiamond('tile_floor', W, H, (g) => {
+			// Base fill
+			g.fillStyle(0x2a2a3a);
+			this.fillDiamond(g, W, H);
+			// Border
+			g.lineStyle(1, 0x1e1e2e);
+			this.strokeDiamond(g, W, H);
+			// Stone texture dots
+			g.fillStyle(0x222232);
+			g.fillRect(W * 0.3, H * 0.35, 2, 1);
+			g.fillRect(W * 0.6, H * 0.5, 2, 1);
+			g.fillRect(W * 0.4, H * 0.65, 2, 1);
+		});
 
-		// Wall tile - darker, taller feel
-		const wall = this.make.graphics({ add: false });
-		wall.fillStyle(0x1a1a28);
-		wall.fillRect(0, 0, T, T);
-		wall.lineStyle(1, 0x0f0f1a);
-		wall.strokeRect(0, 0, T, T);
-		// Brick pattern
-		wall.lineStyle(1, 0x151524);
-		wall.lineBetween(0, T / 2, T, T / 2);
-		wall.lineBetween(T / 2, 0, T / 2, T / 2);
-		wall.lineBetween(T / 4, T / 2, T / 4, T);
-		wall.lineBetween((T * 3) / 4, T / 2, (T * 3) / 4, T);
-		wall.generateTexture('tile_wall', T, T);
-		wall.destroy();
+		// --- Corridor tile ---
+		this.makeIsoDiamond('tile_corridor', W, H, (g) => {
+			g.fillStyle(0x262636);
+			this.fillDiamond(g, W, H);
+			g.lineStyle(1, 0x1c1c2c);
+			this.strokeDiamond(g, W, H);
+		});
 
-		// Corridor tile
-		const corridor = this.make.graphics({ add: false });
-		corridor.fillStyle(0x282838);
-		corridor.fillRect(0, 0, T, T);
-		corridor.lineStyle(1, 0x1e1e2e);
-		corridor.strokeRect(0, 0, T, T);
-		corridor.generateTexture('tile_corridor', T, T);
-		corridor.destroy();
+		// --- Wall tile: diamond top + extruded sides ---
+		const wallTotalH = H + WALL_HEIGHT;
+		const wallG = this.make.graphics({ add: false });
 
-		// Stairs down
-		const stairs = this.make.graphics({ add: false });
-		stairs.fillStyle(0x2a2a3a);
-		stairs.fillRect(0, 0, T, T);
-		stairs.fillStyle(0x4a3a2a);
-		for (let i = 0; i < 4; i++) {
-			stairs.fillRect(4 + i * 2, 4 + i * 6, T - 8 - i * 4, 4);
-		}
-		stairs.generateTexture('tile_stairs_down', T, T);
-		stairs.destroy();
+		// Left side face (darker)
+		wallG.fillStyle(0x121220);
+		wallG.beginPath();
+		wallG.moveTo(0, H / 2);               // left point of diamond
+		wallG.lineTo(W / 2, H);               // bottom point
+		wallG.lineTo(W / 2, H + WALL_HEIGHT); // bottom point extruded
+		wallG.lineTo(0, H / 2 + WALL_HEIGHT); // left point extruded
+		wallG.closePath();
+		wallG.fillPath();
+
+		// Right side face (slightly lighter)
+		wallG.fillStyle(0x18182a);
+		wallG.beginPath();
+		wallG.moveTo(W, H / 2);
+		wallG.lineTo(W / 2, H);
+		wallG.lineTo(W / 2, H + WALL_HEIGHT);
+		wallG.lineTo(W, H / 2 + WALL_HEIGHT);
+		wallG.closePath();
+		wallG.fillPath();
+
+		// Top face
+		wallG.fillStyle(0x1a1a28);
+		this.fillDiamondAt(wallG, 0, 0, W, H);
+
+		// Brick lines on top
+		wallG.lineStyle(1, 0x141422);
+		wallG.lineBetween(W * 0.25, H * 0.25, W * 0.75, H * 0.25);
+		wallG.lineBetween(W * 0.25, H * 0.75, W * 0.75, H * 0.75);
+
+		// Edge outline
+		wallG.lineStyle(1, 0x0f0f1a);
+		this.strokeDiamondAt(wallG, 0, 0, W, H);
+
+		wallG.generateTexture('tile_wall', W, wallTotalH);
+		wallG.destroy();
+
+		// --- Stairs down tile ---
+		this.makeIsoDiamond('tile_stairs_down', W, H, (g) => {
+			g.fillStyle(0x2a2a3a);
+			this.fillDiamond(g, W, H);
+			// Step lines
+			g.lineStyle(2, 0x4a3a2a);
+			g.lineBetween(W * 0.2, H * 0.4, W * 0.8, H * 0.4);
+			g.lineBetween(W * 0.25, H * 0.55, W * 0.75, H * 0.55);
+			g.lineBetween(W * 0.3, H * 0.7, W * 0.7, H * 0.7);
+			g.lineStyle(1, 0x1e1e2e);
+			this.strokeDiamond(g, W, H);
+		});
 	}
 
 	private generatePlayerTexture(): void {
 		const g = this.make.graphics({ add: false });
 		const S = 24;
 
-		// Body
-		g.fillStyle(0x8b6914);
-		g.fillRect(4, 6, 16, 14);
+		// Shadow is separate now
+
+		// Body - armored look
+		g.fillStyle(0x7a5c14);
+		g.fillRect(6, 6, 12, 10);
 
 		// Head
 		g.fillStyle(0xdbb878);
-		g.fillRect(7, 0, 10, 8);
+		g.fillRect(8, 0, 8, 7);
+
+		// Helmet hint
+		g.fillStyle(0x555555);
+		g.fillRect(8, 0, 8, 3);
 
 		// Legs
-		g.fillStyle(0x4a3520);
-		g.fillRect(5, 18, 5, 6);
-		g.fillRect(14, 18, 5, 6);
+		g.fillStyle(0x3a2a18);
+		g.fillRect(7, 15, 4, 6);
+		g.fillRect(13, 15, 4, 6);
+
+		// Sword arm
+		g.fillStyle(0xaaaaaa);
+		g.fillRect(18, 8, 2, 8);
 
 		g.generateTexture('player', S, S);
 		g.destroy();
@@ -98,24 +136,73 @@ export class BootScene extends Scene {
 		const g = this.make.graphics({ add: false });
 		const S = 24;
 
-		// Skeleton body - white bones
+		// Skull
 		g.fillStyle(0xccccaa);
-		g.fillRect(8, 2, 8, 6); // skull
+		g.fillRect(8, 1, 8, 6);
 		g.fillStyle(0x111111);
-		g.fillRect(9, 3, 2, 2); // eye
-		g.fillRect(13, 3, 2, 2); // eye
+		g.fillRect(9, 2, 2, 2);
+		g.fillRect(13, 2, 2, 2);
+		g.fillRect(11, 5, 2, 1); // nose
 
+		// Ribcage
 		g.fillStyle(0xbbbb99);
-		g.fillRect(6, 8, 12, 8); // ribcage
+		g.fillRect(6, 7, 12, 7);
 		g.fillStyle(0x1a1a2e);
-		g.fillRect(8, 9, 2, 5); // rib gap
-		g.fillRect(12, 9, 2, 5); // rib gap
+		g.fillRect(8, 8, 2, 4);
+		g.fillRect(12, 8, 2, 4);
 
+		// Pelvis + legs
 		g.fillStyle(0xaaaa88);
-		g.fillRect(6, 16, 4, 8); // leg
-		g.fillRect(14, 16, 4, 8); // leg
+		g.fillRect(7, 14, 10, 2);
+		g.fillRect(7, 16, 4, 6);
+		g.fillRect(13, 16, 4, 6);
 
 		g.generateTexture('enemy_skeleton', S, S);
 		g.destroy();
+	}
+
+	private generateShadowTexture(): void {
+		const g = this.make.graphics({ add: false });
+		g.fillStyle(0x000000, 0.3);
+		g.fillEllipse(12, 4, 20, 8);
+		g.generateTexture('shadow', 24, 8);
+		g.destroy();
+	}
+
+	// --- Diamond drawing helpers ---
+
+	private makeIsoDiamond(key: string, w: number, h: number, draw: (g: Phaser.GameObjects.Graphics) => void): void {
+		const g = this.make.graphics({ add: false });
+		draw(g);
+		g.generateTexture(key, w, h);
+		g.destroy();
+	}
+
+	private fillDiamond(g: Phaser.GameObjects.Graphics, w: number, h: number): void {
+		this.fillDiamondAt(g, 0, 0, w, h);
+	}
+
+	private fillDiamondAt(g: Phaser.GameObjects.Graphics, ox: number, oy: number, w: number, h: number): void {
+		g.beginPath();
+		g.moveTo(ox + w / 2, oy);        // top
+		g.lineTo(ox + w, oy + h / 2);    // right
+		g.lineTo(ox + w / 2, oy + h);    // bottom
+		g.lineTo(ox, oy + h / 2);        // left
+		g.closePath();
+		g.fillPath();
+	}
+
+	private strokeDiamond(g: Phaser.GameObjects.Graphics, w: number, h: number): void {
+		this.strokeDiamondAt(g, 0, 0, w, h);
+	}
+
+	private strokeDiamondAt(g: Phaser.GameObjects.Graphics, ox: number, oy: number, w: number, h: number): void {
+		g.beginPath();
+		g.moveTo(ox + w / 2, oy);
+		g.lineTo(ox + w, oy + h / 2);
+		g.lineTo(ox + w / 2, oy + h);
+		g.lineTo(ox, oy + h / 2);
+		g.closePath();
+		g.strokePath();
 	}
 }
