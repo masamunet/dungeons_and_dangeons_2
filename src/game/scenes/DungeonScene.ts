@@ -20,6 +20,7 @@ export class DungeonScene extends Scene {
 	private dungeonMap!: DungeonMap;
 	private currentFloor = 1;
 	private wallBodies: Phaser.Physics.Arcade.StaticGroup | null = null;
+	private mapRenderer: MapRenderer | null = null;
 	private fogOfWar: FogOfWar | null = null;
 	private torchLight: TorchLight | null = null;
 
@@ -76,8 +77,8 @@ export class DungeonScene extends Scene {
 		this.dungeonMap = generator.generate();
 
 		// Render isometric tiles (visual only)
-		const renderer = new MapRenderer();
-		renderer.renderMap(this, this.dungeonMap);
+		this.mapRenderer = new MapRenderer();
+		this.mapRenderer.renderMap(this, this.dungeonMap);
 
 		// Create physics collision bodies in cartesian space
 		this.wallBodies = this.createCartesianWalls(this.dungeonMap);
@@ -155,17 +156,13 @@ export class DungeonScene extends Scene {
 				if (!dungeonMap.isWalkable(x, y)) {
 					// Only add physics near walkable tiles (optimization)
 					if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
-						// Shift collision body south (+y) to account for isometric wall extrusion:
-						// - North side: player can get closer (extrusion doesn't extend north)
-						// - South side: player pushed back more (extrusion extends south visually)
-						const WALL_BODY_OFFSET_Y = 6;
 						const wallBody = walls.create(
 							x * TILE_SIZE + TILE_SIZE / 2,
-							y * TILE_SIZE + TILE_SIZE / 2 + WALL_BODY_OFFSET_Y,
+							y * TILE_SIZE + TILE_SIZE / 2,
 							undefined
 						) as Phaser.Physics.Arcade.Sprite;
 						wallBody.setVisible(false);
-						wallBody.body!.setSize(TILE_SIZE, TILE_SIZE + WALL_BODY_OFFSET_Y * 2);
+						wallBody.body!.setSize(TILE_SIZE, TILE_SIZE);
 						wallBody.refreshBody();
 					}
 				}
@@ -223,9 +220,13 @@ export class DungeonScene extends Scene {
 			this.returnToHub();
 		}
 
-		// Update torch light
+		// Update torch light and wall transparency
 		if (this.player && this.player.active) {
 			this.torchLight?.update(this.player.visual.x, this.player.visual.y, delta);
+			this.mapRenderer?.updateWallTransparency(
+				this.player.cartX / TILE_SIZE,
+				this.player.cartY / TILE_SIZE
+			);
 		}
 	}
 

@@ -70,7 +70,7 @@ export class HubScene extends Scene {
 					const wallImg = this.add.image(iso.x, iso.y, 'tile_wall');
 					// Same origin adjustment as MapRenderer for wall extrusion
 					wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + 24));
-					wallImg.setDepth(isoDepth(x, y) + 8);
+					wallImg.setDepth(isoDepth(x, y) + 2);
 				} else {
 					const floorImg = this.add.image(iso.x, iso.y, 'tile_floor');
 					floorImg.setDepth(isoDepth(x, y));
@@ -170,9 +170,9 @@ export class HubScene extends Scene {
 		this.playerCartX += (cartDx / len) * speed;
 		this.playerCartY += (cartDy / len) * speed;
 
-		// Clamp to hub bounds (allow closer to north/west walls, further from south/east walls)
-		this.playerCartX = Phaser.Math.Clamp(this.playerCartX, 24, (HUB_WIDTH - 2) * 32 + 16);
-		this.playerCartY = Phaser.Math.Clamp(this.playerCartY, 24, (HUB_HEIGHT - 2) * 32 + 16);
+		// Clamp to hub bounds
+		this.playerCartX = Phaser.Math.Clamp(this.playerCartX, 40, (HUB_WIDTH - 1) * 32 - 8);
+		this.playerCartY = Phaser.Math.Clamp(this.playerCartY, 40, (HUB_HEIGHT - 1) * 32 - 8);
 
 		// Update visual position
 		const tileXFrac = this.playerCartX / 32;

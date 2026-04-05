@@ -10,8 +10,12 @@ export class MapRenderer {
 	 * Tiles are placed using isometric coordinates for visuals.
 	 * Returns an array of wall tile positions for collision body creation.
 	 */
+	/** Wall images indexed by "tileX,tileY" for runtime alpha manipulation */
+	wallImages: Map<string, Phaser.GameObjects.Image> = new Map();
+
 	renderMap(scene: Scene, dungeonMap: DungeonMap): { wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> } {
 		const wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> = [];
+		this.wallImages.clear();
 
 		// Render back-to-front for proper depth (top-left tile first in iso)
 		for (let y = 0; y < dungeonMap.height; y++) {
@@ -41,10 +45,10 @@ export class MapRenderer {
 							// Wall has extra height (extruded sides extend downward)
 							const wallImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall');
 							wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
-							// Walls need higher depth to occlude entities behind them.
-							// The extrusion extends ~1 tile south visually, so add extra depth.
-							wallImg.setDepth(depth + 8);
+							// Normal depth + small offset above floor
+							wallImg.setDepth(depth + 2);
 							wallPositions.push({ x: isoPos.x, y: isoPos.y, tileX: x, tileY: y });
+							this.wallImages.set(`${x},${y}`, wallImg);
 						}
 						break;
 					}
@@ -53,6 +57,34 @@ export class MapRenderer {
 		}
 
 		return { wallPositions };
+	}
+
+	/**
+	 * Make walls that could occlude the player semi-transparent.
+	 * In isometric view, walls to the south-east of the player (higher x+y)
+	 * with extrusions can visually cover the player. Make those walls transparent.
+	 */
+	updateWallTransparency(playerTileX: number, playerTileY: number): void {
+		const FADE_RADIUS = 3;
+
+		for (const [key, wallImg] of this.wallImages) {
+			const [wx, wy] = key.split(',').map(Number);
+			const dx = wx - playerTileX;
+			const dy = wy - playerTileY;
+			const dist = Math.abs(dx) + Math.abs(dy);
+
+			// Wall is "south" of player in iso terms (higher x+y) AND within radius
+			// These walls' extrusions could visually cover the player
+			const wallSumXY = wx + wy;
+			const playerSumXY = playerTileX + playerTileY;
+
+			if (dist < FADE_RADIUS && wallSumXY >= playerSumXY - 1 && wallSumXY <= playerSumXY + 2) {
+				// Wall near player and could occlude - make transparent
+				wallImg.setAlpha(0.3);
+			} else {
+				wallImg.setAlpha(1.0);
+			}
+		}
 	}
 
 	private isAdjacentToWalkable(map: DungeonMap, x: number, y: number): boolean {
