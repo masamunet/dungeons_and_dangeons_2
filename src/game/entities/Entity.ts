@@ -99,9 +99,9 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		this.visual.setPosition(iso.x, iso.y);
 		this.visual.setDepth(depth);
 
-		// Update shadow
+		// Shadow at feet position (origin 0.875 on 24px sprite = 3px below iso.y)
 		if (this.shadow) {
-			this.shadow.setPosition(iso.x, iso.y + 10);
+			this.shadow.setPosition(iso.x, iso.y + 3);
 			this.shadow.setDepth(depth - 0.1);
 			this.shadow.setVisible(this.visual.visible);
 			this.shadow.setAlpha(this.visual.alpha * 0.5);
