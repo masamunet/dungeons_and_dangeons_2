@@ -3,6 +3,7 @@
 	import HealthBar from './HealthBar.svelte';
 	import StaminaBar from './StaminaBar.svelte';
 	import { playerHealth, playerStamina, dungeonFloor } from '$lib/stores/gameState';
+	import { playerLevel, skillPoints, playerXp, xpToNextLevel, currentLevelXp } from '$lib/stores/skillState';
 	import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 
 	let flavorText = $state('');
@@ -41,10 +42,23 @@
 	});
 </script>
 
-<!-- Top-left: Health & Stamina -->
+<!-- Top-left: Health, Stamina & Level -->
 <div class="absolute top-4 left-4 flex flex-col gap-1 pointer-events-none">
 	<HealthBar />
 	<StaminaBar />
+	<div class="flex items-center gap-2 mt-1">
+		<span class="text-xs text-amber-400 font-bold w-6">Lv</span>
+		<div class="w-32 h-1.5 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
+			<div
+				class="h-full bg-amber-600 transition-all duration-300"
+				style="width: {(($playerXp - $currentLevelXp) / Math.max(1, $xpToNextLevel - $currentLevelXp)) * 100}%"
+			></div>
+		</div>
+		<span class="text-xs text-gray-400 font-mono">{$playerLevel}</span>
+		{#if $skillPoints > 0}
+			<span class="text-xs text-yellow-400 font-bold animate-pulse">SP:{$skillPoints}</span>
+		{/if}
+	</div>
 </div>
 
 <!-- Top-right: Floor indicator -->
@@ -61,6 +75,7 @@
 		<span>J: Attack</span>
 		<span>K: Dodge</span>
 		<span>E: Interact</span>
+		<span>TAB: Skills</span>
 	</div>
 </div>
 
