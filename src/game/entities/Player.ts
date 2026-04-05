@@ -30,7 +30,7 @@ export class Player extends Entity {
 
 		const body = this.body as Phaser.Physics.Arcade.Body;
 		body.setSize(16, 16);
-		body.setOffset(4, 6);
+		body.setOffset(4, 4);
 
 		this.health.onDamage((damage, current) => {
 			eventBridge.emit(GameEvents.PLAYER_HEALTH_CHANGED, { current, max: this.health.max });
@@ -48,7 +48,6 @@ export class Player extends Entity {
 
 		if (this.dodgeCooldown > 0) this.dodgeCooldown -= delta;
 
-		// Emit stamina updates
 		eventBridge.emit(GameEvents.PLAYER_STAMINA_CHANGED, {
 			current: this.stamina.current,
 			max: this.stamina.max,
@@ -70,8 +69,8 @@ export class Player extends Entity {
 				if (this.stateTimer > 300) this.setState('idle');
 				break;
 			case 'dead':
-				this.setVelocity(0, 0);
-				this.setAlpha(0.5);
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+				this.setVisualAlpha(0.5);
 				break;
 		}
 
@@ -80,20 +79,18 @@ export class Player extends Entity {
 
 	private handleMovement(): void {
 		const screenMove = this.inputManager.getMovementVector();
+		const body = this.body as Phaser.Physics.Arcade.Body;
 
 		if (screenMove.length() > 0.1) {
-			// Convert screen-space input to cartesian world direction
 			const cartDir = screenDirToCart(screenMove.x, screenMove.y);
-			const body = this.body as Phaser.Physics.Arcade.Body;
 			body.setVelocity(cartDir.x * PLAYER_CONFIG.speed, cartDir.y * PLAYER_CONFIG.speed);
 			this.facing.set(cartDir.x, cartDir.y);
 			this.setState('moving');
 
-			// Flip sprite based on screen-space horizontal direction
-			if (screenMove.x < -0.1) this.setFlipX(true);
-			else if (screenMove.x > 0.1) this.setFlipX(false);
+			if (screenMove.x < -0.1) this.setVisualFlipX(true);
+			else if (screenMove.x > 0.1) this.setVisualFlipX(false);
 		} else {
-			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+			body.setVelocity(0, 0);
 			if (this.currentState === 'moving') this.setState('idle');
 		}
 	}
@@ -114,7 +111,7 @@ export class Player extends Entity {
 		this.attackPhase = 'windup';
 		this.attackTimer = PLAYER_CONFIG.attackWindup;
 		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-		this.setTint(0xffff88); // Visual feedback: windup
+		this.setVisualTint(0xffff88);
 	}
 
 	private handleAttackState(delta: number): void {
@@ -125,17 +122,17 @@ export class Player extends Entity {
 				case 'windup':
 					this.attackPhase = 'active';
 					this.attackTimer = PLAYER_CONFIG.attackActive;
-					this.setTint(0xff4444); // Visual feedback: active (damage)
+					this.setVisualTint(0xff4444);
 					this.emitAttackHitbox();
 					break;
 				case 'active':
 					this.attackPhase = 'recovery';
 					this.attackTimer = PLAYER_CONFIG.attackRecovery;
-					this.setTint(0x888888); // Visual feedback: recovery
+					this.setVisualTint(0x888888);
 					break;
 				case 'recovery':
 					this.attackPhase = 'none';
-					this.clearTint();
+					this.clearVisualTint();
 					this.setState('idle');
 					break;
 			}
@@ -143,7 +140,6 @@ export class Player extends Entity {
 	}
 
 	private emitAttackHitbox(): void {
-		// Emit attack using cartesian coordinates (game logic space)
 		this.scene.events.emit('player-attack', {
 			cartX: this.cartX + this.facing.x * PLAYER_CONFIG.attackRange,
 			cartY: this.cartY + this.facing.y * PLAYER_CONFIG.attackRange,
@@ -172,13 +168,12 @@ export class Player extends Entity {
 		this.setState('dodging');
 		this.dodgeCooldown = DODGE_COOLDOWN;
 
-		// Start i-frame timer
 		this.iframeTimer = DODGE_IFRAME_START;
 		this.iframeDuration = DODGE_IFRAME_DURATION;
-		this.setAlpha(0.6); // Visual feedback
+		this.setVisualAlpha(0.6);
 	}
 
-	private handleDodgeState(delta: number): void {
+	private handleDodgeState(_delta: number): void {
 		const body = this.body as Phaser.Physics.Arcade.Body;
 		if (this.stateTimer < DODGE_DURATION) {
 			body.setVelocity(
@@ -187,7 +182,7 @@ export class Player extends Entity {
 			);
 		} else {
 			body.setVelocity(0, 0);
-			this.setAlpha(1);
+			this.setVisualAlpha(1);
 			this.isInvincible = false;
 			this.setState('idle');
 		}
@@ -214,8 +209,8 @@ export class Player extends Entity {
 		if (!this.health.isDead) {
 			this.setState('hit_stun');
 			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
-			this.setTint(0xff0000);
-			this.scene.time.delayedCall(200, () => this.clearTint());
+			this.setVisualTint(0xff0000);
+			this.scene.time.delayedCall(200, () => this.clearVisualTint());
 		}
 	}
 

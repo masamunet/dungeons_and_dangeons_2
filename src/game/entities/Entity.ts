@@ -1,4 +1,4 @@
-import { Physics, Scene } from 'phaser';
+import { Physics, Scene, GameObjects } from 'phaser';
 import { HealthComponent } from './components/HealthComponent';
 import { cartToIso, isoDepth } from '../iso/IsoHelper';
 import { TILE_SIZE } from '$lib/utils/constants';
@@ -7,64 +7,65 @@ export type EntityState = 'idle' | 'moving' | 'attacking' | 'dodging' | 'hit_stu
 
 /**
  * Base entity using a dual-coordinate system:
- * - Physics body operates in cartesian grid space (this.body.x/y)
- * - Sprite rendering is projected to isometric screen space
+ * - Physics body (this) operates invisibly in cartesian grid space
+ * - A separate visual sprite is projected to isometric screen space
  *
- * The sprite's visual position is updated every frame via updateIsoPosition().
- * Use cartX/cartY to get the logical position, and this.x/this.y for screen position.
+ * IMPORTANT: this.x / this.y = cartesian physics position (do NOT use for display)
+ * Use this.visual for the on-screen representation.
  */
 export abstract class Entity extends Physics.Arcade.Sprite {
 	health: HealthComponent;
 	currentState: EntityState = 'idle';
 	facing: Phaser.Math.Vector2 = new Phaser.Math.Vector2(0, 1);
 
+	/** The visible sprite rendered in isometric space */
+	visual: GameObjects.Image;
+	private shadow: GameObjects.Image | null = null;
+
 	protected stateTimer = 0;
-	private shadow: Phaser.GameObjects.Image | null = null;
 
 	constructor(scene: Scene, cartX: number, cartY: number, texture: string, maxHealth: number) {
-		// Create the sprite at screen (0,0) initially; updateIsoPosition will fix it
-		super(scene, 0, 0, texture);
+		// Physics sprite is invisible, stays in cartesian space
+		super(scene, cartX, cartY, texture);
 		scene.add.existing(this);
 		scene.physics.add.existing(this);
+		this.setVisible(false); // Hide the physics sprite
 
 		this.health = new HealthComponent(maxHealth);
 		this.setCollideWorldBounds(false);
 
-		// Position the physics body in cartesian space
-		const body = this.body as Phaser.Physics.Arcade.Body;
-		body.reset(cartX, cartY);
+		// Create visible sprite for isometric rendering
+		this.visual = scene.add.image(0, 0, texture);
 
 		// Create shadow
 		if (scene.textures.exists('shadow')) {
 			this.shadow = scene.add.image(0, 0, 'shadow');
-			this.shadow.setDepth(0);
 		}
 
 		this.health.onDeath(() => {
 			this.setState('dead');
 		});
 
-		// Initial position sync
 		this.updateIsoPosition();
 	}
 
-	/** Cartesian X position (game logic coordinates) */
+	/** Cartesian X position (game logic / physics) */
 	get cartX(): number {
-		return (this.body as Phaser.Physics.Arcade.Body).x + (this.body as Phaser.Physics.Arcade.Body).halfWidth;
+		return this.x;
 	}
 
-	/** Cartesian Y position (game logic coordinates) */
+	/** Cartesian Y position (game logic / physics) */
 	get cartY(): number {
-		return (this.body as Phaser.Physics.Arcade.Body).y + (this.body as Phaser.Physics.Arcade.Body).halfHeight;
+		return this.y;
 	}
 
 	/** Get cartesian tile coordinates */
 	get tileX(): number {
-		return Math.floor(this.cartX / TILE_SIZE);
+		return Math.floor(this.x / TILE_SIZE);
 	}
 
 	get tileY(): number {
-		return Math.floor(this.cartY / TILE_SIZE);
+		return Math.floor(this.y / TILE_SIZE);
 	}
 
 	setState(state: EntityState): void {
@@ -81,35 +82,50 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 	}
 
 	/**
-	 * Project the physics body's cartesian position to isometric screen coordinates.
-	 * Call this every frame after physics update.
+	 * Project the cartesian physics position to isometric screen coordinates
+	 * on the VISUAL sprite only. The physics sprite stays in cartesian space.
 	 */
 	updateIsoPosition(): void {
-		// Convert cartesian pixel position to tile-fraction coordinates
-		const tileXFrac = this.cartX / TILE_SIZE;
-		const tileYFrac = this.cartY / TILE_SIZE;
+		const tileXFrac = this.x / TILE_SIZE;
+		const tileYFrac = this.y / TILE_SIZE;
 
-		// Project to isometric screen space using tile coordinates
-		// (same coordinate space as MapRenderer.renderMap)
 		const iso = cartToIso(tileXFrac, tileYFrac);
+		const depth = isoDepth(tileXFrac, tileYFrac, 5);
 
-		// Set the sprite's visual position (overrides the physics default)
-		this.setPosition(iso.x, iso.y);
-
-		// Depth sorting based on cartesian position
-		this.setDepth(isoDepth(tileXFrac, tileYFrac, 5));
+		// Update visual sprite
+		this.visual.setPosition(iso.x, iso.y);
+		this.visual.setDepth(depth);
+		this.visual.setFlipX(this.visual.flipX); // preserve flip
 
 		// Update shadow
 		if (this.shadow) {
 			this.shadow.setPosition(iso.x, iso.y + 10);
-			this.shadow.setDepth(this.depth - 0.1);
-			this.shadow.setVisible(this.visible);
-			this.shadow.setAlpha(this.alpha * 0.5);
+			this.shadow.setDepth(depth - 0.1);
+			this.shadow.setVisible(this.visual.visible);
+			this.shadow.setAlpha(this.visual.alpha * 0.5);
 		}
+	}
+
+	/** Proxy visual properties to the visual sprite */
+	setVisualTint(tint: number): void {
+		this.visual.setTint(tint);
+	}
+
+	clearVisualTint(): void {
+		this.visual.clearTint();
+	}
+
+	setVisualAlpha(alpha: number): void {
+		this.visual.setAlpha(alpha);
+	}
+
+	setVisualFlipX(flip: boolean): void {
+		this.visual.setFlipX(flip);
 	}
 
 	destroy(fromScene?: boolean): void {
 		this.shadow?.destroy();
+		this.visual?.destroy();
 		super.destroy(fromScene);
 	}
 

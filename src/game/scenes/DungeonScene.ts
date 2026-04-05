@@ -109,8 +109,8 @@ export class DungeonScene extends Scene {
 			this.physics.add.collider(enemy, this.wallBodies);
 		}
 
-		// Camera follows player's isometric screen position
-		this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+		// Camera follows the player's VISUAL sprite (isometric position)
+		this.cameras.main.startFollow(this.player.visual, true, 0.1, 0.1);
 
 		// Camera bounds: compute isometric extent of the map
 		const isoBounds = this.computeIsoBounds(this.dungeonMap.width, this.dungeonMap.height);

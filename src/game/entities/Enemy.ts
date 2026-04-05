@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-import { Entity, type EntityState } from './Entity';
+import { Entity } from './Entity';
 import type { Player } from './Player';
 import { ENEMY_CONFIG } from '../config/gameConfig';
 import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
@@ -24,7 +24,7 @@ export class Enemy extends Entity {
 
 		const body = this.body as Phaser.Physics.Arcade.Body;
 		body.setSize(16, 16);
-		body.setOffset(4, 8);
+		body.setOffset(4, 4);
 
 		this.health.onDeath(() => {
 			eventBridge.emit(GameEvents.ENEMY_KILLED, { x: this.x, y: this.y });
@@ -39,7 +39,7 @@ export class Enemy extends Entity {
 	update(_time: number, delta: number): void {
 		if (this.currentState === 'dead') {
 			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-			this.setAlpha(0.3);
+			this.setVisualAlpha(0.3);
 			return;
 		}
 
@@ -52,7 +52,7 @@ export class Enemy extends Entity {
 
 		switch (this.aiState) {
 			case 'patrol':
-				this.updatePatrol(delta, distToPlayer);
+				this.updatePatrol(distToPlayer);
 				break;
 			case 'chase':
 				this.updateChase(distToPlayer);
@@ -72,21 +72,19 @@ export class Enemy extends Entity {
 		this.updateIsoPosition();
 	}
 
-	private updatePatrol(_delta: number, distToPlayer: number): void {
+	private updatePatrol(distToPlayer: number): void {
 		if (distToPlayer < this.config.detectionRange) {
 			this.aiState = 'chase';
 			this.aiTimer = 0;
 			return;
 		}
 
-		// Random patrol movement
 		if (this.aiTimer > 2000) {
 			this.aiTimer = 0;
 			const angle = Math.random() * Math.PI * 2;
 			this.patrolDirection.set(Math.cos(angle), Math.sin(angle));
 		}
 
-		// Stay near home (cartesian space)
 		const distHome = Phaser.Math.Distance.Between(this.cartX, this.cartY, this.homeX, this.homeY);
 		if (distHome > 60) {
 			this.patrolDirection.set(this.homeX - this.cartX, this.homeY - this.cartY).normalize();
@@ -96,7 +94,6 @@ export class Enemy extends Entity {
 			this.patrolDirection.x * this.config.speed * 0.5,
 			this.patrolDirection.y * this.config.speed * 0.5
 		);
-
 		this.setState('moving');
 	}
 
@@ -118,11 +115,10 @@ export class Enemy extends Entity {
 			this.attackPhase = 'windup';
 			this.attackTimer = this.config.attackWindup;
 			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
-			this.setTint(0xffaa00); // Telegraph: windup glow
+			this.setVisualTint(0xffaa00);
 			return;
 		}
 
-		// Move toward player (cartesian space)
 		const dx = this.target.cartX - this.cartX;
 		const dy = this.target.cartY - this.cartY;
 		const dist = Math.sqrt(dx * dx + dy * dy);
@@ -132,10 +128,9 @@ export class Enemy extends Entity {
 				this.facing.x * this.config.speed,
 				this.facing.y * this.config.speed
 			);
-			if (dx < 0) this.setFlipX(true);
-			else this.setFlipX(false);
+			if (dx < 0) this.setVisualFlipX(true);
+			else this.setVisualFlipX(false);
 		}
-
 		this.setState('moving');
 	}
 
@@ -147,17 +142,17 @@ export class Enemy extends Entity {
 				case 'windup':
 					this.attackPhase = 'active';
 					this.attackTimer = this.config.attackActive;
-					this.setTint(0xff0000);
+					this.setVisualTint(0xff0000);
 					this.performAttack();
 					break;
 				case 'active':
 					this.attackPhase = 'recovery';
 					this.attackTimer = this.config.attackRecovery;
-					this.setTint(0x666666);
+					this.setVisualTint(0x666666);
 					break;
 				case 'recovery':
 					this.attackPhase = 'none';
-					this.clearTint();
+					this.clearVisualTint();
 					this.aiState = 'cooldown';
 					this.aiTimer = 0;
 					this.setState('idle');
@@ -186,9 +181,9 @@ export class Enemy extends Entity {
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
 			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
-			this.setTint(0xff0000);
+			this.setVisualTint(0xff0000);
 			this.scene.time.delayedCall(150, () => {
-				if (this.active) this.clearTint();
+				if (this.active) this.clearVisualTint();
 			});
 		}
 	}
