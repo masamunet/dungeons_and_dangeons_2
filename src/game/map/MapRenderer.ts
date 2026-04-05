@@ -3,18 +3,14 @@ import { DungeonMap, TileType } from './DungeonMap';
 import { tileToIso, isoDepth, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
 
 const WALL_EXTRA_HEIGHT = 24;
-
-interface WallSprites {
-	top: Phaser.GameObjects.Image;
-	sides: Phaser.GameObjects.Image;
-}
+// Extrusion covers 24 screen px south = 24/16 = 1.5 tiles of depth
+const WALL_DEPTH_OFFSET = 15;
 
 export class MapRenderer {
-	/** Wall side sprites indexed by "tileX,tileY" for transparency control */
-	private wallSides: Map<string, Phaser.GameObjects.Image> = new Map();
+	wallImages: Map<string, Phaser.GameObjects.Image> = new Map();
 
 	renderMap(scene: Scene, dungeonMap: DungeonMap): void {
-		this.wallSides.clear();
+		this.wallImages.clear();
 
 		for (let y = 0; y < dungeonMap.height; y++) {
 			for (let x = 0; x < dungeonMap.width; x++) {
@@ -35,25 +31,14 @@ export class MapRenderer {
 					case TileType.WALL: {
 						if (!this.isAdjacentToWalkable(dungeonMap, x, y)) break;
 
-						// Wall TOP: diamond face, slightly above floor
-						scene.add.image(isoPos.x, isoPos.y, 'tile_wall_top').setDepth(depth + 2);
-
-						// Wall SIDES: only render if there's a walkable tile to the south
-						// (i.e. this wall edge faces the camera and needs visible extrusion)
-						const hasSouthFloor =
-							dungeonMap.isWalkable(x + 1, y) ||  // iso-south-east
-							dungeonMap.isWalkable(x, y + 1) ||  // iso-south-west
-							dungeonMap.isWalkable(x + 1, y + 1); // iso-south
-
-						if (hasSouthFloor) {
-							const sidesImg = scene.add.image(
-								isoPos.x,
-								isoPos.y + WALL_EXTRA_HEIGHT / 2,
-								'tile_wall_sides'
-							);
-							sidesImg.setDepth(depth + 14);
-							this.wallSides.set(`${x},${y}`, sidesImg);
-						}
+						const wallImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall');
+						// Origin: align diamond top of texture with tile position
+						// Texture is 64x56, diamond center is at (32, 16)
+						// So originY = 16/56 ≈ 0.286 puts diamond center at tile pos
+						wallImg.setOrigin(0.5, 16 / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
+						// Depth: based on visual bottom of extrusion (~1.5 tiles south)
+						wallImg.setDepth(depth + WALL_DEPTH_OFFSET);
+						this.wallImages.set(`${x},${y}`, wallImg);
 						break;
 					}
 				}
@@ -62,24 +47,23 @@ export class MapRenderer {
 	}
 
 	/**
-	 * Diablo 1-style wall transparency: when a wall's side extrusion
-	 * could occlude the player, make it semi-transparent.
-	 * Only the SIDES become transparent; the top face stays opaque.
+	 * Diablo 1-style: walls near the player that could occlude them become transparent.
 	 */
 	updateWallTransparency(playerTileX: number, playerTileY: number): void {
 		const playerSum = playerTileX + playerTileY;
 
-		for (const [key, sidesImg] of this.wallSides) {
+		for (const [key, wallImg] of this.wallImages) {
 			const [wx, wy] = key.split(',').map(Number);
 			const dx = Math.abs(wx - playerTileX);
 			const dy = Math.abs(wy - playerTileY);
 			const wallSum = wx + wy;
 
-			// Wall is south of player (higher x+y) and close by → its sides could occlude
+			// Wall is south of player (higher x+y, closer to camera) and nearby
+			// → its extrusion could visually cover the player
 			if (dx + dy < 3 && wallSum > playerSum && wallSum <= playerSum + 3) {
-				sidesImg.setAlpha(0.3);
+				wallImg.setAlpha(0.3);
 			} else {
-				sidesImg.setAlpha(1.0);
+				wallImg.setAlpha(1.0);
 			}
 		}
 	}
