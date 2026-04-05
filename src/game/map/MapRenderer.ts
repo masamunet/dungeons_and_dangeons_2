@@ -91,14 +91,11 @@ export class MapRenderer {
 			const dx = wx - playerTileX;
 			const dy = wy - playerTileY;
 
-			// Only fade walls that are:
-			// 1. Close to the player (within ~2 tiles manhattan)
-			// 2. Between the player and the camera (wall is south = higher x+y)
-			//    → dx + dy > 0 means wall's (x+y) > player's (x+y)
-			// 3. Not too far south (within 2 tiles south)
+			// Only fade walls that are SOUTH of the player (between player and camera).
+			// South in iso = higher (x+y). dx+dy = wallSum - playerSum.
+			const southOffset = dx + dy; // positive = wall is south of player
 			const dist = Math.abs(dx) + Math.abs(dy);
-			const wallIsSouth = (dx + dy) > -0.5; // wall is south of or at player row
-			const shouldFade = dist < 2.5 && wallIsSouth && (dx + dy) < 2.5;
+			const shouldFade = dist < 2.5 && southOffset > 0;
 
 			for (const sprite of sprites) {
 				sprite.setAlpha(shouldFade ? 0.3 : 1.0);
