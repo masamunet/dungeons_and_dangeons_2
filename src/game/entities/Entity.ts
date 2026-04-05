@@ -93,7 +93,7 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		const tileYFrac = this.y / TILE_SIZE;
 
 		const iso = cartToIso(tileXFrac, tileYFrac);
-		const depth = isoDepth(tileXFrac, tileYFrac, 1);
+		const depth = isoDepth(tileXFrac, tileYFrac);
 
 		// Update visual sprite — same depth space as tiles for proper occlusion
 		this.visual.setPosition(iso.x, iso.y);

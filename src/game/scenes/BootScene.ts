@@ -45,7 +45,9 @@ export class BootScene extends Scene {
 			this.strokeDiamond(g, W, H);
 		});
 
-		// --- Wall TOP face only (diamond) ---
+		// --- Wall block: 3 separate faces ---
+
+		// TOP face (diamond ceiling)
 		const wallTopG = this.make.graphics({ add: false });
 		wallTopG.fillStyle(0x1a1a28);
 		this.fillDiamondAt(wallTopG, 0, 0, W, H);
@@ -54,59 +56,38 @@ export class BootScene extends Scene {
 		wallTopG.lineBetween(W * 0.25, H * 0.75, W * 0.75, H * 0.75);
 		wallTopG.lineStyle(1, 0x0f0f1a);
 		this.strokeDiamondAt(wallTopG, 0, 0, W, H);
-		wallTopG.generateTexture('tile_wall_top', W, H);
+		wallTopG.generateTexture('wall_top', W, H);
 		wallTopG.destroy();
 
-		// --- Wall SIDE extrusion only (left + right faces, transparent top area) ---
-		const wallTotalH = H + WALL_HEIGHT;
-		const wallSidesG = this.make.graphics({ add: false });
+		// LEFT face (south-west face, darker)
+		const wallLeftG = this.make.graphics({ add: false });
+		wallLeftG.fillStyle(0x121220);
+		wallLeftG.beginPath();
+		wallLeftG.moveTo(W / 2, 0);             // diamond left point (local coords)
+		wallLeftG.lineTo(W, H / 2);             // diamond bottom point
+		wallLeftG.lineTo(W, H / 2 + WALL_HEIGHT);
+		wallLeftG.lineTo(W / 2, WALL_HEIGHT);
+		wallLeftG.closePath();
+		wallLeftG.fillPath();
+		wallLeftG.lineStyle(1, 0x0a0a16);
+		wallLeftG.lineBetween(W / 2, WALL_HEIGHT, W, H / 2 + WALL_HEIGHT);
+		wallLeftG.generateTexture('wall_left', W, H / 2 + WALL_HEIGHT);
+		wallLeftG.destroy();
 
-		// Left side face (darker)
-		wallSidesG.fillStyle(0x121220);
-		wallSidesG.beginPath();
-		wallSidesG.moveTo(0, H / 2);
-		wallSidesG.lineTo(W / 2, H);
-		wallSidesG.lineTo(W / 2, H + WALL_HEIGHT);
-		wallSidesG.lineTo(0, H / 2 + WALL_HEIGHT);
-		wallSidesG.closePath();
-		wallSidesG.fillPath();
-
-		// Right side face (slightly lighter)
-		wallSidesG.fillStyle(0x18182a);
-		wallSidesG.beginPath();
-		wallSidesG.moveTo(W, H / 2);
-		wallSidesG.lineTo(W / 2, H);
-		wallSidesG.lineTo(W / 2, H + WALL_HEIGHT);
-		wallSidesG.lineTo(W, H / 2 + WALL_HEIGHT);
-		wallSidesG.closePath();
-		wallSidesG.fillPath();
-
-		// Bottom edge line
-		wallSidesG.lineStyle(1, 0x0a0a16);
-		wallSidesG.lineBetween(0, H / 2 + WALL_HEIGHT, W / 2, H + WALL_HEIGHT);
-		wallSidesG.lineBetween(W / 2, H + WALL_HEIGHT, W, H / 2 + WALL_HEIGHT);
-
-		wallSidesG.generateTexture('tile_wall_sides', W, wallTotalH);
-		wallSidesG.destroy();
-
-		// --- Combined wall (for backward compat, e.g. HubScene simple rendering) ---
-		const wallG = this.make.graphics({ add: false });
-		wallG.fillStyle(0x121220);
-		wallG.beginPath();
-		wallG.moveTo(0, H / 2); wallG.lineTo(W / 2, H);
-		wallG.lineTo(W / 2, H + WALL_HEIGHT); wallG.lineTo(0, H / 2 + WALL_HEIGHT);
-		wallG.closePath(); wallG.fillPath();
-		wallG.fillStyle(0x18182a);
-		wallG.beginPath();
-		wallG.moveTo(W, H / 2); wallG.lineTo(W / 2, H);
-		wallG.lineTo(W / 2, H + WALL_HEIGHT); wallG.lineTo(W, H / 2 + WALL_HEIGHT);
-		wallG.closePath(); wallG.fillPath();
-		wallG.fillStyle(0x1a1a28);
-		this.fillDiamondAt(wallG, 0, 0, W, H);
-		wallG.lineStyle(1, 0x0f0f1a);
-		this.strokeDiamondAt(wallG, 0, 0, W, H);
-		wallG.generateTexture('tile_wall', W, wallTotalH);
-		wallG.destroy();
+		// RIGHT face (south-east face, slightly lighter)
+		const wallRightG = this.make.graphics({ add: false });
+		wallRightG.fillStyle(0x18182a);
+		wallRightG.beginPath();
+		wallRightG.moveTo(0, H / 2);            // diamond bottom point (local coords)
+		wallRightG.lineTo(W / 2, 0);            // diamond right point
+		wallRightG.lineTo(W / 2, WALL_HEIGHT);
+		wallRightG.lineTo(0, H / 2 + WALL_HEIGHT);
+		wallRightG.closePath();
+		wallRightG.fillPath();
+		wallRightG.lineStyle(1, 0x0a0a16);
+		wallRightG.lineBetween(0, H / 2 + WALL_HEIGHT, W / 2, WALL_HEIGHT);
+		wallRightG.generateTexture('wall_right', W, H / 2 + WALL_HEIGHT);
+		wallRightG.destroy();
 
 		// --- Stairs down tile ---
 		this.makeIsoDiamond('tile_stairs_down', W, H, (g) => {

@@ -67,12 +67,32 @@ export class HubScene extends Scene {
 				const iso = cartToIso(x, y);
 				const isEdge = x === 0 || y === 0 || x === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1;
 				if (isEdge) {
-					const wallImg = this.add.image(iso.x, iso.y, 'tile_wall');
-					wallImg.setOrigin(0.5, 16 / (ISO_TILE_HEIGHT + 24));
-					wallImg.setDepth(isoDepth(x, y) + 15);
+					// Top face
+					this.add.image(iso.x, iso.y, 'wall_top').setDepth(isoDepth(x, y));
+					// Left face if no wall at (x, y+1)
+					const noWallSW = !(y + 1 < HUB_HEIGHT && (x === 0 || y + 1 === HUB_HEIGHT - 1 || x === HUB_WIDTH - 1));
+					if (noWallSW || y === HUB_HEIGHT - 1) {
+						const left = this.add.image(
+							iso.x - ISO_TILE_WIDTH / 4,
+							iso.y + ISO_TILE_HEIGHT / 2,
+							'wall_left'
+						);
+						left.setOrigin(0.5, 0);
+						left.setDepth(isoDepth(x, y) + 1);
+					}
+					// Right face if no wall at (x+1, y)
+					const noWallSE = !(x + 1 < HUB_WIDTH && (y === 0 || x + 1 === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1));
+					if (noWallSE || x === HUB_WIDTH - 1) {
+						const right = this.add.image(
+							iso.x + ISO_TILE_WIDTH / 4,
+							iso.y + ISO_TILE_HEIGHT / 2,
+							'wall_right'
+						);
+						right.setOrigin(0.5, 0);
+						right.setDepth(isoDepth(x, y) + 1);
+					}
 				} else {
-					const floorImg = this.add.image(iso.x, iso.y, 'tile_floor');
-					floorImg.setDepth(isoDepth(x, y));
+					this.add.image(iso.x, iso.y, 'tile_floor').setDepth(-1000);
 				}
 			}
 		}
@@ -104,7 +124,7 @@ export class HubScene extends Scene {
 		const iso = cartToIso(this.playerTileX, this.playerTileY);
 		this.playerVisual = this.add.image(iso.x, iso.y, 'player');
 		this.playerVisual.setOrigin(0.5, 0.875);
-		this.playerVisual.setDepth(isoDepth(this.playerTileX, this.playerTileY, 1));
+		this.playerVisual.setDepth(isoDepth(this.playerTileX, this.playerTileY));
 
 		this.cameras.main.startFollow(this.playerVisual, true, 0.1, 0.1);
 		this.cameras.main.setZoom(2.0);
@@ -121,17 +141,17 @@ export class HubScene extends Scene {
 				g.fillRect(iso.x - 8, iso.y - 16, 16, 16);
 				g.fillStyle(0xccaa66);
 				g.fillRect(iso.x - 6, iso.y - 14, 12, 12);
-				g.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
+				g.setDepth(isoDepth(npc.tileX, npc.tileY));
 				npc.visual = this.add.image(iso.x, iso.y, '__DEFAULT') as any; // placeholder
 			} else if (npc.role === 'dungeon_entrance') {
 				const img = this.add.image(iso.x, iso.y, 'tile_stairs_down');
-				img.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
+				img.setDepth(isoDepth(npc.tileX, npc.tileY));
 				npc.visual = img;
 			} else {
 				// NPC sprite (reuse enemy skeleton for now, tinted)
 				const img = this.add.image(iso.x, iso.y, 'enemy_skeleton');
 				img.setOrigin(0.5, 0.875);
-				img.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
+				img.setDepth(isoDepth(npc.tileX, npc.tileY));
 				if (npc.role === 'blacksmith') img.setTint(0xff8844);
 				if (npc.role === 'alchemist') img.setTint(0x44ff88);
 				npc.visual = img;
@@ -178,7 +198,7 @@ export class HubScene extends Scene {
 		const tileYFrac = this.playerCartY / 32;
 		const iso = cartToIso(tileXFrac, tileYFrac);
 		this.playerVisual.setPosition(iso.x, iso.y);
-		this.playerVisual.setDepth(isoDepth(tileXFrac, tileYFrac, 1));
+		this.playerVisual.setDepth(isoDepth(tileXFrac, tileYFrac));
 
 		if (move.x < -0.1) this.playerVisual.setFlipX(true);
 		else if (move.x > 0.1) this.playerVisual.setFlipX(false);
