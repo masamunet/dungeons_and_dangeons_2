@@ -8,7 +8,9 @@ import { MapRenderer } from '../map/MapRenderer';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { TileType, type DungeonMap } from '../map/DungeonMap';
-import { cartToIso, ISO_TILE_WIDTH, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
+import { cartToIso } from '../iso/IsoHelper';
+import { FogOfWar } from '../systems/FogOfWar';
+import { TorchLight } from '../systems/TorchLight';
 
 export class DungeonScene extends Scene {
 	private inputManager!: InputManager;
@@ -17,6 +19,8 @@ export class DungeonScene extends Scene {
 	private dungeonMap!: DungeonMap;
 	private currentFloor = 1;
 	private wallBodies: Phaser.Physics.Arcade.StaticGroup | null = null;
+	private fogOfWar: FogOfWar | null = null;
+	private torchLight: TorchLight | null = null;
 
 	constructor() {
 		super('DungeonScene');
@@ -54,6 +58,14 @@ export class DungeonScene extends Scene {
 		this.enemies = [];
 		if (this.wallBodies) {
 			this.wallBodies.clear(true, true);
+		}
+		if (this.fogOfWar) {
+			this.fogOfWar.destroy();
+			this.fogOfWar = null;
+		}
+		if (this.torchLight) {
+			this.torchLight.destroy();
+			this.torchLight = null;
 		}
 
 		const generator = new DungeonGenerator();
@@ -122,6 +134,10 @@ export class DungeonScene extends Scene {
 
 		// Emit minimap data
 		eventBridge.emit(GameEvents.MINIMAP_DATA_UPDATED, this.dungeonMap.tiles);
+
+		// Fog of war & torch light
+		this.fogOfWar = new FogOfWar(this, this.dungeonMap);
+		this.torchLight = new TorchLight(this);
 	}
 
 	/**
@@ -194,6 +210,12 @@ export class DungeonScene extends Scene {
 
 		this.inputManager.postUpdate();
 		this.checkStairsInteraction();
+
+		// Update fog of war and torch light
+		if (this.player && this.player.active) {
+			this.fogOfWar?.update(this.player.cartX, this.player.cartY);
+			this.torchLight?.update(this.player.visual.x, this.player.visual.y, delta);
+		}
 	}
 
 	private handlePlayerAttack(data: {
