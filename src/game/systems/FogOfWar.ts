@@ -95,6 +95,14 @@ export class FogOfWar {
 		}
 	}
 
+	/** Check if a tile position is currently visible to the player */
+	isTileVisible(tileX: number, tileY: number): boolean {
+		const key = `${Math.floor(tileX)},${Math.floor(tileY)}`;
+		const fog = this.fogTiles.get(key);
+		if (!fog) return false;
+		return fog.alpha < FOG_ALPHA_EXPLORED; // visible = low fog alpha
+	}
+
 	private hasLineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
 		// Bresenham-style ray march
 		const dx = Math.abs(x1 - x0);

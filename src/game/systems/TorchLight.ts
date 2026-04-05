@@ -35,7 +35,7 @@ export class TorchLight {
 
 		this.light = scene.add.image(0, 0, 'torch_light');
 		this.light.setBlendMode(Phaser.BlendModes.ADD);
-		this.light.setDepth(8999); // Just below fog
+		this.light.setDepth(9050); // Between fog (9000) and entities (9100+)
 		this.light.setScale(2.0);
 	}
 
