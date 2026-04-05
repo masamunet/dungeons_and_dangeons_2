@@ -135,8 +135,7 @@ export class DungeonScene extends Scene {
 		// Emit minimap data
 		eventBridge.emit(GameEvents.MINIMAP_DATA_UPDATED, this.dungeonMap.tiles);
 
-		// Fog of war & torch light
-		this.fogOfWar = new FogOfWar(this, this.dungeonMap);
+		// Torch light (fog of war disabled for now)
 		this.torchLight = new TorchLight(this);
 	}
 
@@ -211,20 +210,9 @@ export class DungeonScene extends Scene {
 		this.inputManager.postUpdate();
 		this.checkStairsInteraction();
 
-		// Update fog of war and torch light
+		// Update torch light
 		if (this.player && this.player.active) {
-			this.fogOfWar?.update(this.player.cartX, this.player.cartY);
 			this.torchLight?.update(this.player.visual.x, this.player.visual.y, delta);
-
-			// Hide enemies not in player's current vision
-			for (const enemy of this.enemies) {
-				if (!enemy.active) continue;
-				const visible = this.fogOfWar?.isTileInVision(
-					enemy.tileX, enemy.tileY,
-					this.player.cartX, this.player.cartY
-				) ?? true;
-				enemy.visual.setVisible(visible);
-			}
 		}
 	}
 

@@ -28,11 +28,25 @@ export class FogOfWar {
 		this.scene = scene;
 		this.dungeonMap = dungeonMap;
 
-		const maxTiles = Math.max(dungeonMap.width, dungeonMap.height);
-		this.rtWidth = maxTiles * 64 + 512;
-		this.rtHeight = maxTiles * 32 + 512;
-		this.offsetX = -this.rtWidth / 2;
-		this.offsetY = -128;
+		// Compute exact isometric bounds of the map
+		const w = dungeonMap.width;
+		const h = dungeonMap.height;
+		// Four corners in iso space: top(0,0), right(w,0), bottom(w,h), left(0,h)
+		const isoTop = { x: 0, y: 0 };                          // cartToIso(0,0)
+		const isoRight = { x: w * 32, y: w * 16 };              // cartToIso(w,0)
+		const isoBottom = { x: (w - h) * 32, y: (w + h) * 16 }; // cartToIso(w,h)
+		const isoLeft = { x: -h * 32, y: h * 16 };              // cartToIso(0,h)
+
+		const margin = 800; // Extra margin for camera view at edges
+		const minX = Math.min(isoTop.x, isoRight.x, isoBottom.x, isoLeft.x) - margin;
+		const maxX = Math.max(isoTop.x, isoRight.x, isoBottom.x, isoLeft.x) + margin;
+		const minY = Math.min(isoTop.y, isoRight.y, isoBottom.y, isoLeft.y) - margin;
+		const maxY = Math.max(isoTop.y, isoRight.y, isoBottom.y, isoLeft.y) + margin;
+
+		this.rtWidth = maxX - minX;
+		this.rtHeight = maxY - minY;
+		this.offsetX = minX;
+		this.offsetY = minY;
 
 		// Persistent explored layer (accumulates over time, never cleared)
 		this.exploredRT = scene.make.renderTexture({ x: 0, y: 0, width: this.rtWidth, height: this.rtHeight, add: false });
