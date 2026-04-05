@@ -4,20 +4,18 @@ import { tileToIso, isoDepth, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
 
 const WALL_EXTRA_HEIGHT = 24;
 
+interface WallSprites {
+	top: Phaser.GameObjects.Image;
+	sides: Phaser.GameObjects.Image;
+}
+
 export class MapRenderer {
-	/**
-	 * Render the dungeon map in isometric projection.
-	 * Tiles are placed using isometric coordinates for visuals.
-	 * Returns an array of wall tile positions for collision body creation.
-	 */
-	/** Wall images indexed by "tileX,tileY" for runtime alpha manipulation */
-	wallImages: Map<string, Phaser.GameObjects.Image> = new Map();
+	/** Wall side sprites indexed by "tileX,tileY" for transparency control */
+	private wallSides: Map<string, Phaser.GameObjects.Image> = new Map();
 
-	renderMap(scene: Scene, dungeonMap: DungeonMap): { wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> } {
-		const wallPositions: Array<{ x: number; y: number; tileX: number; tileY: number }> = [];
-		this.wallImages.clear();
+	renderMap(scene: Scene, dungeonMap: DungeonMap): void {
+		this.wallSides.clear();
 
-		// Render back-to-front for proper depth (top-left tile first in iso)
 		for (let y = 0; y < dungeonMap.height; y++) {
 			for (let x = 0; x < dungeonMap.width; x++) {
 				const tile = dungeonMap.getTile(x, y);
@@ -25,64 +23,57 @@ export class MapRenderer {
 				const depth = isoDepth(x, y);
 
 				switch (tile) {
-					case TileType.FLOOR: {
-						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_floor');
-						img.setDepth(depth);
+					case TileType.FLOOR:
+						scene.add.image(isoPos.x, isoPos.y, 'tile_floor').setDepth(depth);
 						break;
-					}
-					case TileType.CORRIDOR: {
-						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_corridor');
-						img.setDepth(depth);
+					case TileType.CORRIDOR:
+						scene.add.image(isoPos.x, isoPos.y, 'tile_corridor').setDepth(depth);
 						break;
-					}
-					case TileType.STAIRS_DOWN: {
-						const img = scene.add.image(isoPos.x, isoPos.y, 'tile_stairs_down');
-						img.setDepth(depth);
+					case TileType.STAIRS_DOWN:
+						scene.add.image(isoPos.x, isoPos.y, 'tile_stairs_down').setDepth(depth);
 						break;
-					}
 					case TileType.WALL: {
-						if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
-							// Wall has extra height (extruded sides extend downward)
-							const wallImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall');
-							wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
-							// Normal depth + small offset above floor
-							wallImg.setDepth(depth + 2);
-							wallPositions.push({ x: isoPos.x, y: isoPos.y, tileX: x, tileY: y });
-							this.wallImages.set(`${x},${y}`, wallImg);
-						}
+						if (!this.isAdjacentToWalkable(dungeonMap, x, y)) break;
+
+						// Wall TOP: diamond face, low depth (floor-level)
+						const topImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall_top');
+						topImg.setDepth(depth + 2);
+
+						// Wall SIDES: extrusion, high depth to occlude entities behind
+						const sidesImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall_sides');
+						// Origin: pin so the diamond area of the texture aligns with the tile position
+						// The texture is 64x56. The diamond top area occupies y=0..32, sides occupy y=16..56.
+						// We want the center of the diamond (y=16 in texture) at the tile position.
+						sidesImg.setOrigin(0.5, (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
+						sidesImg.setDepth(depth + 14);
+
+						this.wallSides.set(`${x},${y}`, sidesImg);
 						break;
 					}
 				}
 			}
 		}
-
-		return { wallPositions };
 	}
 
 	/**
-	 * Make walls that could occlude the player semi-transparent.
-	 * In isometric view, walls to the south-east of the player (higher x+y)
-	 * with extrusions can visually cover the player. Make those walls transparent.
+	 * Diablo 1-style wall transparency: when a wall's side extrusion
+	 * could occlude the player, make it semi-transparent.
+	 * Only the SIDES become transparent; the top face stays opaque.
 	 */
 	updateWallTransparency(playerTileX: number, playerTileY: number): void {
-		const FADE_RADIUS = 3;
+		const playerSum = playerTileX + playerTileY;
 
-		for (const [key, wallImg] of this.wallImages) {
+		for (const [key, sidesImg] of this.wallSides) {
 			const [wx, wy] = key.split(',').map(Number);
-			const dx = wx - playerTileX;
-			const dy = wy - playerTileY;
-			const dist = Math.abs(dx) + Math.abs(dy);
+			const dx = Math.abs(wx - playerTileX);
+			const dy = Math.abs(wy - playerTileY);
+			const wallSum = wx + wy;
 
-			// Wall is "south" of player in iso terms (higher x+y) AND within radius
-			// These walls' extrusions could visually cover the player
-			const wallSumXY = wx + wy;
-			const playerSumXY = playerTileX + playerTileY;
-
-			if (dist < FADE_RADIUS && wallSumXY >= playerSumXY - 1 && wallSumXY <= playerSumXY + 2) {
-				// Wall near player and could occlude - make transparent
-				wallImg.setAlpha(0.3);
+			// Wall is south of player (higher x+y) and close by → its sides could occlude
+			if (dx + dy < 3 && wallSum > playerSum && wallSum <= playerSum + 3) {
+				sidesImg.setAlpha(0.3);
 			} else {
-				wallImg.setAlpha(1.0);
+				sidesImg.setAlpha(1.0);
 			}
 		}
 	}

@@ -67,10 +67,13 @@ export class HubScene extends Scene {
 				const iso = cartToIso(x, y);
 				const isEdge = x === 0 || y === 0 || x === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1;
 				if (isEdge) {
-					const wallImg = this.add.image(iso.x, iso.y, 'tile_wall');
-					// Same origin adjustment as MapRenderer for wall extrusion
-					wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + 24));
-					wallImg.setDepth(isoDepth(x, y) + 2);
+					// Wall TOP face
+					this.add.image(iso.x, iso.y, 'tile_wall_top')
+						.setDepth(isoDepth(x, y) + 2);
+					// Wall SIDE extrusion
+					const sides = this.add.image(iso.x, iso.y, 'tile_wall_sides');
+					sides.setOrigin(0.5, (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + 24));
+					sides.setDepth(isoDepth(x, y) + 14);
 				} else {
 					const floorImg = this.add.image(iso.x, iso.y, 'tile_floor');
 					floorImg.setDepth(isoDepth(x, y));
