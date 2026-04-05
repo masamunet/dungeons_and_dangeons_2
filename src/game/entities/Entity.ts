@@ -35,7 +35,9 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		this.setCollideWorldBounds(false);
 
 		// Create visible sprite for isometric rendering
+		// Origin at bottom-center so feet align with tile position
 		this.visual = scene.add.image(0, 0, texture);
+		this.visual.setOrigin(0.5, 1.0);
 
 		// Create shadow
 		if (scene.textures.exists('shadow')) {
@@ -90,7 +92,7 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		const tileYFrac = this.y / TILE_SIZE;
 
 		const iso = cartToIso(tileXFrac, tileYFrac);
-		const depth = isoDepth(tileXFrac, tileYFrac, 5);
+		const depth = isoDepth(tileXFrac, tileYFrac, 1);
 
 		// Update visual sprite — same depth space as tiles for proper occlusion
 		this.visual.setPosition(iso.x, iso.y);

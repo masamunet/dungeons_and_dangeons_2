@@ -66,9 +66,15 @@ export class HubScene extends Scene {
 			for (let x = 0; x < HUB_WIDTH; x++) {
 				const iso = cartToIso(x, y);
 				const isEdge = x === 0 || y === 0 || x === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1;
-				const texture = isEdge ? 'tile_wall' : 'tile_floor';
-				const img = this.add.image(iso.x, iso.y, texture);
-				img.setDepth(isoDepth(x, y));
+				if (isEdge) {
+					const wallImg = this.add.image(iso.x, iso.y, 'tile_wall');
+					// Same origin adjustment as MapRenderer for wall extrusion
+					wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + 24));
+					wallImg.setDepth(isoDepth(x, y) + 8);
+				} else {
+					const floorImg = this.add.image(iso.x, iso.y, 'tile_floor');
+					floorImg.setDepth(isoDepth(x, y));
+				}
 			}
 		}
 
@@ -98,7 +104,8 @@ export class HubScene extends Scene {
 		this.playerCartY = this.playerTileY * 32 + 16;
 		const iso = cartToIso(this.playerTileX, this.playerTileY);
 		this.playerVisual = this.add.image(iso.x, iso.y, 'player');
-		this.playerVisual.setDepth(isoDepth(this.playerTileX, this.playerTileY, 5));
+		this.playerVisual.setOrigin(0.5, 1.0);
+		this.playerVisual.setDepth(isoDepth(this.playerTileX, this.playerTileY, 1));
 
 		this.cameras.main.startFollow(this.playerVisual, true, 0.1, 0.1);
 		this.cameras.main.setZoom(2.0);
@@ -115,16 +122,17 @@ export class HubScene extends Scene {
 				g.fillRect(iso.x - 8, iso.y - 16, 16, 16);
 				g.fillStyle(0xccaa66);
 				g.fillRect(iso.x - 6, iso.y - 14, 12, 12);
-				g.setDepth(isoDepth(npc.tileX, npc.tileY, 5));
+				g.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
 				npc.visual = this.add.image(iso.x, iso.y, '__DEFAULT') as any; // placeholder
 			} else if (npc.role === 'dungeon_entrance') {
 				const img = this.add.image(iso.x, iso.y, 'tile_stairs_down');
-				img.setDepth(isoDepth(npc.tileX, npc.tileY, 5));
+				img.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
 				npc.visual = img;
 			} else {
 				// NPC sprite (reuse enemy skeleton for now, tinted)
 				const img = this.add.image(iso.x, iso.y, 'enemy_skeleton');
-				img.setDepth(isoDepth(npc.tileX, npc.tileY, 5));
+				img.setOrigin(0.5, 1.0);
+				img.setDepth(isoDepth(npc.tileX, npc.tileY, 1));
 				if (npc.role === 'blacksmith') img.setTint(0xff8844);
 				if (npc.role === 'alchemist') img.setTint(0x44ff88);
 				npc.visual = img;
@@ -171,7 +179,7 @@ export class HubScene extends Scene {
 		const tileYFrac = this.playerCartY / 32;
 		const iso = cartToIso(tileXFrac, tileYFrac);
 		this.playerVisual.setPosition(iso.x, iso.y);
-		this.playerVisual.setDepth(isoDepth(tileXFrac, tileYFrac, 5));
+		this.playerVisual.setDepth(isoDepth(tileXFrac, tileYFrac, 1));
 
 		if (move.x < -0.1) this.playerVisual.setFlipX(true);
 		else if (move.x > 0.1) this.playerVisual.setFlipX(false);
