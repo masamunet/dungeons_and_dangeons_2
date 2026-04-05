@@ -6,11 +6,11 @@ const WALL_HEIGHT = 24;
 const FLOOR_DEPTH = -1000; // Floor is ALWAYS behind everything
 
 export class MapRenderer {
-	/** All wall sprites (top + faces) per tile for transparency control */
-	wallSprites: Map<string, Phaser.GameObjects.Image[]> = new Map();
+	/** Wall TOP sprites per tile for transparency control (only tops fade) */
+	private wallTops: Map<string, Phaser.GameObjects.Image> = new Map();
 
 	renderMap(scene: Scene, dungeonMap: DungeonMap): void {
-		this.wallSprites.clear();
+		this.wallTops.clear();
 
 		for (let y = 0; y < dungeonMap.height; y++) {
 			for (let x = 0; x < dungeonMap.width; x++) {
@@ -43,12 +43,11 @@ export class MapRenderer {
 		iso: { x: number; y: number }
 	): void {
 		const depth = isoDepth(x, y);
-		const sprites: Phaser.GameObjects.Image[] = [];
 
-		// 1. TOP face (ceiling diamond) - always draw
+		// 1. TOP face (ceiling diamond) - fades when occluding player
 		const top = scene.add.image(iso.x, iso.y, 'wall_top');
 		top.setDepth(depth);
-		sprites.push(top);
+		this.wallTops.set(`${x},${y}`, top);
 
 		// Diamond points relative to iso center:
 		// left = (iso.x - 32, iso.y), bottom = (iso.x, iso.y + 16), right = (iso.x + 32, iso.y)
@@ -63,7 +62,6 @@ export class MapRenderer {
 			);
 			left.setOrigin(0, 0);
 			left.setDepth(depth + 1);
-			sprites.push(left);
 		}
 
 		// 3. RIGHT face (SE) - anchored so (0,16) hits diamond bottom, (32,0) hits diamond right
@@ -76,30 +74,25 @@ export class MapRenderer {
 			);
 			right.setOrigin(0, 0);
 			right.setDepth(depth + 1);
-			sprites.push(right);
 		}
-
-		this.wallSprites.set(`${x},${y}`, sprites);
 	}
 
 	/**
 	 * Diablo 1 style: walls near the player that could occlude them become transparent.
 	 */
 	updateWallTransparency(playerTileX: number, playerTileY: number): void {
-		for (const [key, sprites] of this.wallSprites) {
+		for (const [key, topImg] of this.wallTops) {
 			const [wx, wy] = key.split(',').map(Number);
 			const dx = wx - playerTileX;
 			const dy = wy - playerTileY;
 
-			// Only fade walls that are SOUTH of the player (between player and camera).
-			// South in iso = higher (x+y). dx+dy = wallSum - playerSum.
-			const southOffset = dx + dy; // positive = wall is south of player
+			// Fade ONLY the ceiling when it's south of the player (occluding from above).
+			// Wall side faces always stay opaque.
+			const southOffset = dx + dy;
 			const dist = Math.abs(dx) + Math.abs(dy);
 			const shouldFade = dist < 2.5 && southOffset > 0;
 
-			for (const sprite of sprites) {
-				sprite.setAlpha(shouldFade ? 0.3 : 1.0);
-			}
+			topImg.setAlpha(shouldFade ? 0.15 : 1.0);
 		}
 	}
 
