@@ -155,13 +155,17 @@ export class DungeonScene extends Scene {
 				if (!dungeonMap.isWalkable(x, y)) {
 					// Only add physics near walkable tiles (optimization)
 					if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
+						// Shift collision body south (+y) to account for isometric wall extrusion:
+						// - North side: player can get closer (extrusion doesn't extend north)
+						// - South side: player pushed back more (extrusion extends south visually)
+						const WALL_BODY_OFFSET_Y = 6;
 						const wallBody = walls.create(
 							x * TILE_SIZE + TILE_SIZE / 2,
-							y * TILE_SIZE + TILE_SIZE / 2,
-							undefined  // No texture - invisible
+							y * TILE_SIZE + TILE_SIZE / 2 + WALL_BODY_OFFSET_Y,
+							undefined
 						) as Phaser.Physics.Arcade.Sprite;
 						wallBody.setVisible(false);
-						wallBody.body!.setSize(TILE_SIZE, TILE_SIZE);
+						wallBody.body!.setSize(TILE_SIZE, TILE_SIZE + WALL_BODY_OFFSET_Y * 2);
 						wallBody.refreshBody();
 					}
 				}

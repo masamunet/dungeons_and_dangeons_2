@@ -170,9 +170,9 @@ export class HubScene extends Scene {
 		this.playerCartX += (cartDx / len) * speed;
 		this.playerCartY += (cartDy / len) * speed;
 
-		// Clamp to hub bounds
-		this.playerCartX = Phaser.Math.Clamp(this.playerCartX, 32, (HUB_WIDTH - 1) * 32);
-		this.playerCartY = Phaser.Math.Clamp(this.playerCartY, 32, (HUB_HEIGHT - 1) * 32);
+		// Clamp to hub bounds (allow closer to north/west walls, further from south/east walls)
+		this.playerCartX = Phaser.Math.Clamp(this.playerCartX, 24, (HUB_WIDTH - 2) * 32 + 16);
+		this.playerCartY = Phaser.Math.Clamp(this.playerCartY, 24, (HUB_HEIGHT - 2) * 32 + 16);
 
 		// Update visual position
 		const tileXFrac = this.playerCartX / 32;
