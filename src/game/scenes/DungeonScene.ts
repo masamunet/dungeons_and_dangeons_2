@@ -210,6 +210,11 @@ export class DungeonScene extends Scene {
 		this.inputManager.postUpdate();
 		this.checkStairsInteraction();
 
+		// ESC to return to hub
+		if (this.inputManager.isActionJustPressed(InputAction.PAUSE)) {
+			this.returnToHub();
+		}
+
 		// Update torch light
 		if (this.player && this.player.active) {
 			this.torchLight?.update(this.player.visual.x, this.player.visual.y, delta);
@@ -276,6 +281,23 @@ export class DungeonScene extends Scene {
 		if (tile === TileType.STAIRS_DOWN && this.inputManager.isActionJustPressed(InputAction.INTERACT)) {
 			this.descendFloor();
 		}
+	}
+
+	private returnToHub(): void {
+		this.cameras.main.fadeOut(500, 0, 0, 0);
+		this.cameras.main.once('camerafadeoutcomplete', () => {
+			this.cleanup();
+			this.scene.start('HubScene');
+		});
+	}
+
+	private cleanup(): void {
+		this.enemies.forEach((e) => e.destroy());
+		this.enemies = [];
+		this.wallBodies?.clear(true, true);
+		this.torchLight?.destroy();
+		this.torchLight = null;
+		this.currentFloor = 1;
 	}
 
 	private descendFloor(): void {

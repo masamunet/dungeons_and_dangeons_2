@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { HubScene } from './scenes/HubScene';
 import { DungeonScene } from './scenes/DungeonScene';
 import { GAME_WIDTH, GAME_HEIGHT, GAME_BG_COLOR } from '$lib/utils/constants';
 
@@ -25,7 +26,7 @@ export function StartGame(parent: string | HTMLElement): Phaser.Game {
 		input: {
 			gamepad: true,
 		},
-		scene: [BootScene, DungeonScene],
+		scene: [BootScene, HubScene, DungeonScene],
 	};
 
 	const game = new Phaser.Game(config);

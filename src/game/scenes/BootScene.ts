@@ -14,7 +14,7 @@ export class BootScene extends Scene {
 		this.generateShadowTexture();
 
 		eventBridge.emit(GameEvents.CURRENT_SCENE_READY, { scene: 'BootScene' });
-		this.scene.start('DungeonScene');
+		this.scene.start('HubScene');
 	}
 
 	private generateIsoTileTextures(): void {

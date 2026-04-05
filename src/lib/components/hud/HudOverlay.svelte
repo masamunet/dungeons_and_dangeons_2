@@ -6,6 +6,8 @@
 	import { playerLevel, skillPoints, playerXp, xpToNextLevel, currentLevelXp } from '$lib/stores/skillState';
 	import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 
+	let currentScene = $state('HubScene');
+
 	let flavorText = $state('');
 	let showFlavorText = $state(false);
 
@@ -21,6 +23,10 @@
 		dungeonFloor.set(floor);
 	}
 
+	function onSceneReady(data: { scene: string }) {
+		currentScene = data.scene;
+	}
+
 	function onFlavorTextReceived(text: string) {
 		flavorText = text;
 		showFlavorText = true;
@@ -32,6 +38,7 @@
 		eventBridge.on(GameEvents.PLAYER_STAMINA_CHANGED, onStaminaChanged);
 		eventBridge.on(GameEvents.DUNGEON_FLOOR_CHANGED, onFloorChanged);
 		eventBridge.on(GameEvents.FLAVOR_TEXT_RECEIVED, onFlavorTextReceived);
+		eventBridge.on(GameEvents.CURRENT_SCENE_READY, onSceneReady);
 	});
 
 	onDestroy(() => {
@@ -39,6 +46,7 @@
 		eventBridge.off(GameEvents.PLAYER_STAMINA_CHANGED, onStaminaChanged);
 		eventBridge.off(GameEvents.DUNGEON_FLOOR_CHANGED, onFloorChanged);
 		eventBridge.off(GameEvents.FLAVOR_TEXT_RECEIVED, onFlavorTextReceived);
+		eventBridge.off(GameEvents.CURRENT_SCENE_READY, onSceneReady);
 	});
 </script>
 
@@ -61,10 +69,10 @@
 	</div>
 </div>
 
-<!-- Top-right: Floor indicator -->
+<!-- Top-right: Location indicator -->
 <div class="absolute top-4 right-4 pointer-events-none">
 	<div class="text-xs text-amber-200/80 font-mono bg-black/50 px-2 py-1 rounded">
-		Floor B{$dungeonFloor}
+		{currentScene === 'HubScene' ? '拠点' : `Floor B${$dungeonFloor}`}
 	</div>
 </div>
 
@@ -72,8 +80,11 @@
 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">
 	<div class="text-xs text-gray-500 font-mono bg-black/30 px-3 py-1 rounded flex gap-4">
 		<span>WASD: Move</span>
-		<span>J: Attack</span>
-		<span>K: Dodge</span>
+		{#if currentScene === 'DungeonScene'}
+			<span>J: Attack</span>
+			<span>K: Dodge</span>
+			<span>ESC: Return</span>
+		{/if}
 		<span>E: Interact</span>
 		<span>TAB: Skills</span>
 	</div>
