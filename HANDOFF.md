@@ -183,13 +183,142 @@ BootScene (テクスチャ生成) → HubScene (拠点) → DungeonScene (ダン
 
 参考: `FogOfWar.ts` に `hasLineOfSight` の実装が既にある（現在無効だが流用可能）
 
-## 2. その他の未実装タスク（優先度順）
-1. アイテムドロップ & インベントリ
-2. クエストシステム（固定 + LLM生成）
-3. 拠点の発展（クエスト結果で変化）
-4. より多くの敵タイプ & ボス
-5. フォグ・オブ・ウォー再実装（WebGL shader方式推奨）
-6. スキルツリーのステータス反映（`skillBonuses` store → Player/Enemy パラメータ）
+## 2. プロシージャルワールド生成システム
+
+### ビジョン
+Minecraftのようにワールド全体がプロシージャル生成され、LLMが補強する。
+
+### ワールド構造
+```
+ワールド (World)
+  ├── 拠点 (Hub) — 1つ。クエスト結果で発展
+  ├── ダンジョン A — プロシージャル生成、複数フロア
+  ├── ダンジョン B — 別シード、別テーマ
+  └── ... (ワールドマップから選択)
+```
+
+### 実装計画
+
+#### Phase 3-1: ワールドマップ
+- `src/game/scenes/WorldMapScene.ts` 新規作成
+- 複数ダンジョンをノードとして配置（グラフ構造）
+- プロシージャル生成: シード値からダンジョン位置・テーマ・難易度を決定
+- HubScene → WorldMapScene → DungeonScene のフロー
+
+#### Phase 3-2: ダンジョンテーマ
+- `DungeonGenerator.generate(config, theme)` にテーマパラメータ追加
+- テーマ例: 石窟、地下墓地、溶岩洞、氷穴
+- テーマごとにタイルカラー、敵タイプ、BGM変更
+- LLMがテーマに合わせたフレーバーテキストを生成
+
+#### Phase 3-3: プロシージャル敵・アイテム生成
+- `EnemyFactory.ts`: テーマ+フロアレベルから敵ステータスを生成
+- `ItemFactory.ts`: ランダムアイテム生成（武器/防具/消耗品）
+- LLMが生成されたアイテムにフレーバーテキストと名前を付与
+- ドロップテーブル: 敵タイプ→アイテムプール
+
+## 3. クエストシステム
+
+### 設計
+```
+クエストの結果 → 拠点の発展、勢力図の更新（アルゴリズム）
+拠点の発展、勢力図の更新 → ワールドの変化（歴史、ロア）（LLM）
+```
+
+### Phase 3-4: 固定クエスト
+- `src/game/config/questConfig.ts` 新規作成
+- データ駆動のクエスト定義:
+  ```typescript
+  interface Quest {
+    id: string;
+    title: string;
+    description: string;
+    objective: QuestObjective; // kill_enemies, reach_floor, find_item, talk_npc
+    reward: QuestReward;       // xp, gold, item, hub_upgrade
+    prerequisites: string[];   // 前提クエストID
+  }
+  ```
+- `src/lib/stores/questState.ts`: アクティブ/完了クエスト管理
+- HubScene の掲示板からクエスト受注
+- DungeonScene で目標達成を検知 → 完了通知
+
+### Phase 3-5: LLM生成クエスト
+- Gemini APIに現在のワールド状態を送り、クエストJSONを生成
+- プロンプト:
+  ```
+  現在の状態: {拠点レベル, 完了クエスト一覧, 最深到達フロア, 勢力図}
+  この状態に基づいて新しいクエストを生成してください。
+  JSON形式: {title, description, objective, reward_hint}
+  ```
+- 生成されたクエストは `type: 'quest'` で `/api/gemini` 経由
+- `geminiClient.ts` の `fetchGemini('quest', ...)` が既に対応
+
+### Phase 3-6: 拠点発展システム
+- `src/lib/stores/hubState.ts` 新規作成:
+  ```typescript
+  hubLevel: writable(1),
+  unlockedShops: writable(['blacksmith']),
+  factionStanding: writable<Record<string, number>>({}),
+  hubHistory: writable<string[]>([])  // LLMが生成する歴史ログ
+  ```
+- クエスト完了 → 拠点レベルアップ → NPC追加/ショップ拡張
+- 勢力図: 複数勢力のスコアをアルゴリズムで計算
+- 勢力変動をLLMに送り、ワールドの歴史・ロアテキストを生成
+
+## 4. LLM統合の全体設計
+
+### 現在の実装
+- `/api/gemini/+server.ts`: サーバーサイドproxy (APIキー保護)
+- 4タイプ対応: `flavor_text`, `dialogue`, `quest`, `item_description`
+- `geminiClient.ts`: 非同期フェッチ、フォールバック日本語テキスト
+- インメモリキャッシュ (5分TTL)
+
+### 拡張計画
+
+#### LLMが担当する領域
+| 領域 | トリガー | 入力コンテキスト |
+|------|---------|----------------|
+| フレーバーテキスト | フロア遷移時 | フロア番号、テーマ |
+| NPC会話 | NPC Eキー | NPC名、役職、拠点レベル |
+| クエスト生成 | 掲示板アクセス | ワールド状態、完了クエスト |
+| アイテム命名 | アイテムドロップ時 | アイテム種別、レアリティ |
+| ワールドロア | 勢力変動時 | 勢力スコア、歴史ログ |
+| イベントナレーション | ボス撃破/クエスト完了 | 状況詳細 |
+
+#### プロンプトテンプレート設計
+`buildSystemPrompt()` を拡張:
+```typescript
+case 'world_lore':
+  return `${base}\n以下の勢力変動に基づいてワールドの歴史的出来事を1段落で記述:
+  ${context}`;
+case 'event_narration':
+  return `${base}\n以下のゲームイベントをTRPG風に劇的に描写(2-3文):
+  ${context}`;
+```
+
+#### ゲームブック風体験 (火吹山の魔法使い)
+- ダンジョン内の特定ポイント（ランダム配置）で選択肢イベント発生
+- LLMが状況+選択肢を生成 → プレイヤーが選択 → LLMが結果を生成
+- 選択結果がゲーム内に影響（HP回復/ダメージ/アイテム発見/罠）
+- 実装:
+  ```typescript
+  interface GameBookEvent {
+    description: string;     // LLM生成: 状況描写
+    choices: Array<{
+      text: string;          // 選択肢テキスト
+      outcome: 'positive' | 'negative' | 'neutral';  // アルゴリズム決定
+    }>;
+  }
+  ```
+- Svelte UIでモーダル表示、ゲームパッド対応（十字キーで選択、Aで決定）
+
+## 5. その他の未実装タスク（優先度順）
+1. アイテムドロップ & インベントリシステム
+2. スキルツリーのステータス反映（`skillBonuses` → Player パラメータ）
+3. より多くの敵タイプ & ボス（EnemyFactory）
+4. フォグ・オブ・ウォー再実装（WebGL shader方式推奨）
+5. オーディオ（BGM、SE）
+6. セーブ/ロード（LocalStorage → IndexedDB）
 
 ## コマンド
 ```bash
