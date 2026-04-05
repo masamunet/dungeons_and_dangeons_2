@@ -1,146 +1,153 @@
 import { Scene, GameObjects } from 'phaser';
-import { cartToIso } from '../iso/IsoHelper';
 import { TILE_SIZE } from '$lib/utils/constants';
 import type { DungeonMap } from '../map/DungeonMap';
 
 const VISION_RADIUS_TILES = 6;
-const FOG_ALPHA_UNEXPLORED = 0.95;
-const FOG_ALPHA_EXPLORED = 0.6;
 
 /**
- * Fog of War system using per-tile alpha.
- * Three states: unexplored (dark), explored (dim), visible (clear).
- * Uses a RenderTexture for the darkness overlay with a light mask.
+ * Fog of War using a single RenderTexture overlay.
+ * A large black texture covers the map. Each frame, we "erase" a circular
+ * area around the player to reveal the dungeon. Previously explored areas
+ * remain partially revealed.
+ *
+ * This avoids the per-tile diamond artifacts of the previous approach.
  */
 export class FogOfWar {
-	private fogTiles: Map<string, GameObjects.Image> = new Map();
+	private fogRT: GameObjects.RenderTexture;
+	private lightBrush: GameObjects.Image;
 	private explored: Set<string> = new Set();
 	private dungeonMap: DungeonMap;
 	private scene: Scene;
+	private rtWidth: number;
+	private rtHeight: number;
+	private offsetX: number;
+	private offsetY: number;
 
 	constructor(scene: Scene, dungeonMap: DungeonMap) {
 		this.scene = scene;
 		this.dungeonMap = dungeonMap;
-		this.createFogTiles();
+
+		// Calculate the isometric extent of the map for RT sizing
+		// Use a generous bounding box
+		const maxTiles = Math.max(dungeonMap.width, dungeonMap.height);
+		this.rtWidth = maxTiles * 64 + 512;
+		this.rtHeight = maxTiles * 32 + 512;
+		this.offsetX = -this.rtWidth / 2;
+		this.offsetY = -128;
+
+		// Create the RenderTexture filled with black
+		this.fogRT = scene.add.renderTexture(
+			this.offsetX, this.offsetY,
+			this.rtWidth, this.rtHeight
+		);
+		this.fogRT.setOrigin(0, 0);
+		this.fogRT.setDepth(9000);
+		this.fogRT.fill(0x000000, 0.88);
+		this.fogRT.setScrollFactor(1);
+
+		// Create a radial gradient brush for erasing fog
+		this.lightBrush = this.createLightBrush(scene);
 	}
 
-	private createFogTiles(): void {
-		// Generate fog texture if not exists
-		if (!this.scene.textures.exists('fog_tile')) {
-			const g = this.scene.make.graphics({ add: false });
-			// Black diamond matching iso tile shape
-			g.fillStyle(0x000000);
-			g.beginPath();
-			g.moveTo(32, 0);
-			g.lineTo(64, 16);
-			g.lineTo(32, 32);
-			g.lineTo(0, 16);
-			g.closePath();
-			g.fillPath();
-			g.generateTexture('fog_tile', 64, 32);
-			g.destroy();
+	private createLightBrush(scene: Scene): GameObjects.Image {
+		const key = 'fog_light_brush';
+		if (!scene.textures.exists(key)) {
+			const size = 512;
+			const canvas = document.createElement('canvas');
+			canvas.width = size;
+			canvas.height = size;
+			const ctx = canvas.getContext('2d')!;
+
+			const gradient = ctx.createRadialGradient(
+				size / 2, size / 2, 0,
+				size / 2, size / 2, size / 2
+			);
+			gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+			gradient.addColorStop(0.3, 'rgba(255, 255, 255, 1.0)');
+			gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.6)');
+			gradient.addColorStop(0.85, 'rgba(255, 255, 255, 0.15)');
+			gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+			ctx.fillStyle = gradient;
+			ctx.fillRect(0, 0, size, size);
+
+			scene.textures.addCanvas(key, canvas);
 		}
 
-		// Place fog over every tile
-		for (let y = 0; y < this.dungeonMap.height; y++) {
-			for (let x = 0; x < this.dungeonMap.width; x++) {
-				const iso = cartToIso(x, y);
-				const fog = this.scene.add.image(iso.x, iso.y, 'fog_tile');
-				fog.setAlpha(FOG_ALPHA_UNEXPLORED);
-				fog.setDepth(9000); // Above everything except HUD
-				this.fogTiles.set(`${x},${y}`, fog);
-			}
-		}
+		const brush = scene.make.image({ key, add: false });
+		brush.setBlendMode(Phaser.BlendModes.ERASE);
+		return brush;
 	}
 
 	update(playerCartX: number, playerCartY: number): void {
 		const playerTileX = playerCartX / TILE_SIZE;
 		const playerTileY = playerCartY / TILE_SIZE;
-		const r2 = VISION_RADIUS_TILES * VISION_RADIUS_TILES;
 
-		// Reset all visible tiles to explored state
-		for (const [key, fog] of this.fogTiles) {
-			if (this.explored.has(key)) {
-				fog.setAlpha(FOG_ALPHA_EXPLORED);
-			}
-		}
+		// Get the player's isometric screen position
+		const isoX = (playerTileX - playerTileY) * 32; // ISO_TILE_WIDTH / 2
+		const isoY = (playerTileX + playerTileY) * 16; // ISO_TILE_HEIGHT / 2
 
-		// Reveal tiles in vision radius with line-of-sight
-		const minX = Math.max(0, Math.floor(playerTileX - VISION_RADIUS_TILES));
-		const maxX = Math.min(this.dungeonMap.width - 1, Math.ceil(playerTileX + VISION_RADIUS_TILES));
-		const minY = Math.max(0, Math.floor(playerTileY - VISION_RADIUS_TILES));
-		const maxY = Math.min(this.dungeonMap.height - 1, Math.ceil(playerTileY + VISION_RADIUS_TILES));
+		// Convert to RT-local coordinates
+		const localX = isoX - this.offsetX;
+		const localY = isoY - this.offsetY;
 
-		for (let y = minY; y <= maxY; y++) {
-			for (let x = minX; x <= maxX; x++) {
-				const dx = x - playerTileX;
-				const dy = y - playerTileY;
-				const dist2 = dx * dx + dy * dy;
+		// Mark nearby tiles as explored (persistent dim reveal)
+		const r = VISION_RADIUS_TILES;
+		const minTX = Math.max(0, Math.floor(playerTileX - r));
+		const maxTX = Math.min(this.dungeonMap.width - 1, Math.ceil(playerTileX + r));
+		const minTY = Math.max(0, Math.floor(playerTileY - r));
+		const maxTY = Math.min(this.dungeonMap.height - 1, Math.ceil(playerTileY + r));
 
-				if (dist2 <= r2) {
-					// Simple ray check for line of sight
-					if (this.hasLineOfSight(playerTileX, playerTileY, x, y)) {
-						const key = `${x},${y}`;
-						const fog = this.fogTiles.get(key);
-						if (fog) {
-							// Smooth falloff: brighter at center, dimmer at edge
-							const distFactor = Math.sqrt(dist2) / VISION_RADIUS_TILES;
-							const alpha = Math.max(0, distFactor * 0.4);
-							fog.setAlpha(alpha);
-							this.explored.add(key);
-						}
-					}
+		for (let ty = minTY; ty <= maxTY; ty++) {
+			for (let tx = minTX; tx <= maxTX; tx++) {
+				const dx = tx - playerTileX;
+				const dy = ty - playerTileY;
+				if (dx * dx + dy * dy <= r * r) {
+					this.explored.add(`${tx},${ty}`);
 				}
 			}
 		}
-	}
 
-	/** Check if a tile position is currently visible to the player */
-	isTileVisible(tileX: number, tileY: number): boolean {
-		const key = `${Math.floor(tileX)},${Math.floor(tileY)}`;
-		const fog = this.fogTiles.get(key);
-		if (!fog) return false;
-		return fog.alpha < FOG_ALPHA_EXPLORED; // visible = low fog alpha
-	}
+		// Clear and redraw the fog each frame
+		this.fogRT.clear();
+		this.fogRT.fill(0x000000, 0.85);
 
-	private hasLineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
-		// Bresenham-style ray march
-		const dx = Math.abs(x1 - x0);
-		const dy = Math.abs(y1 - y0);
-		const sx = x0 < x1 ? 0.5 : -0.5;
-		const sy = y0 < y1 ? 0.5 : -0.5;
-		const steps = Math.max(dx, dy) * 2;
-
-		if (steps === 0) return true;
-
-		const stepX = (x1 - x0) / steps;
-		const stepY = (y1 - y0) / steps;
-
-		let cx = x0;
-		let cy = y0;
-
-		for (let i = 0; i < steps; i++) {
-			cx += stepX;
-			cy += stepY;
-
-			const tileX = Math.floor(cx);
-			const tileY = Math.floor(cy);
-
-			// If we hit a wall before reaching target, no line of sight
-			if (!this.dungeonMap.isWalkable(tileX, tileY)) {
-				// Allow seeing the wall tile itself
-				if (tileX === Math.floor(x1) && tileY === Math.floor(y1)) return true;
-				return false;
-			}
+		// Dim reveal for explored areas
+		this.lightBrush.setScale(0.6);
+		this.lightBrush.setAlpha(0.5);
+		for (const key of this.explored) {
+			const [tx, ty] = key.split(',').map(Number);
+			const tIsoX = (tx - ty) * 32;
+			const tIsoY = (tx + ty) * 16;
+			this.fogRT.draw(this.lightBrush, tIsoX - this.offsetX, tIsoY - this.offsetY);
 		}
-		return true;
+
+		// Bright torch around player - multiple passes for stronger erase
+		this.lightBrush.setScale(3.0);
+		this.lightBrush.setAlpha(1.0);
+		this.fogRT.draw(this.lightBrush, localX, localY);
+		// Second pass for brighter center
+		this.lightBrush.setScale(1.5);
+		this.fogRT.draw(this.lightBrush, localX, localY);
+	}
+
+	/** Check if a tile is currently within the player's visible radius */
+	isTileVisible(tileX: number, tileY: number): boolean {
+		// Simple distance check — called from DungeonScene for enemy visibility
+		return this.explored.has(`${Math.floor(tileX)},${Math.floor(tileY)}`);
+	}
+
+	/** More precise: is the tile in the CURRENT vision (not just explored)? */
+	isTileInVision(tileX: number, tileY: number, playerCartX: number, playerCartY: number): boolean {
+		const ptx = playerCartX / TILE_SIZE;
+		const pty = playerCartY / TILE_SIZE;
+		const dx = tileX - ptx;
+		const dy = tileY - pty;
+		return dx * dx + dy * dy <= VISION_RADIUS_TILES * VISION_RADIUS_TILES;
 	}
 
 	destroy(): void {
-		for (const fog of this.fogTiles.values()) {
-			fog.destroy();
-		}
-		this.fogTiles.clear();
-		this.explored.clear();
+		this.fogRT.destroy();
+		this.lightBrush.destroy();
 	}
 }

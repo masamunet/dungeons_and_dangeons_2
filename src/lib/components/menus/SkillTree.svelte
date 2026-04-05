@@ -126,9 +126,9 @@
 			</div>
 		</div>
 
-		<!-- Tooltip -->
-		{#if hoveredSkill}
-			<div class="px-4 py-3 bg-gray-900 border-t border-gray-700">
+		<!-- Tooltip (fixed height to prevent layout jitter) -->
+		<div class="h-24 px-4 py-3 bg-gray-900 border-t border-gray-700">
+			{#if hoveredSkill}
 				<div class="flex items-center gap-2 mb-1">
 					<span class="text-lg">{hoveredSkill.icon}</span>
 					<span class="font-bold text-amber-200">{hoveredSkill.name}</span>
@@ -142,13 +142,15 @@
 						<span class="text-green-400">+{effect.perLevel * (getSkillLevel(hoveredSkill.id) + 1)}</span>
 						<span> {effect.stat}</span>
 					{/each}
+					{#if hoveredSkill.requires.length > 0}
+						<span class="ml-2 text-gray-600">
+							| 必要: {hoveredSkill.requires.map(r => SKILL_DEFS.find(s => s.id === r)?.name).join(', ')}
+						</span>
+					{/if}
 				</div>
-				{#if hoveredSkill.requires.length > 0}
-					<div class="text-xs text-gray-600 mt-1">
-						必要: {hoveredSkill.requires.map(r => SKILL_DEFS.find(s => s.id === r)?.name).join(', ')}
-					</div>
-				{/if}
-			</div>
-		{/if}
+			{:else}
+				<p class="text-sm text-gray-600 italic">スキルにカーソルを合わせると詳細が表示されます</p>
+			{/if}
+		</div>
 	</div>
 </div>

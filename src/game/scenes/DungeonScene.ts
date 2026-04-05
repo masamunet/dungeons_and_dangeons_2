@@ -216,10 +216,13 @@ export class DungeonScene extends Scene {
 			this.fogOfWar?.update(this.player.cartX, this.player.cartY);
 			this.torchLight?.update(this.player.visual.x, this.player.visual.y, delta);
 
-			// Hide enemies not in player's vision
+			// Hide enemies not in player's current vision
 			for (const enemy of this.enemies) {
 				if (!enemy.active) continue;
-				const visible = this.fogOfWar?.isTileVisible(enemy.tileX, enemy.tileY) ?? true;
+				const visible = this.fogOfWar?.isTileInVision(
+					enemy.tileX, enemy.tileY,
+					this.player.cartX, this.player.cartY
+				) ?? true;
 				enemy.visual.setVisible(visible);
 			}
 		}
