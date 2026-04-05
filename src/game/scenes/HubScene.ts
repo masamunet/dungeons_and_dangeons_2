@@ -3,6 +3,7 @@ import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { cartToIso, isoDepth, ISO_TILE_WIDTH, ISO_TILE_HEIGHT } from '../iso/IsoHelper';
+import { fetchNPCDialogueAsync } from '$lib/utils/geminiClient';
 
 const HUB_WIDTH = 16;
 const HUB_HEIGHT = 16;
@@ -217,10 +218,10 @@ export class HubScene extends Scene {
 				eventBridge.emit('hub-interact', { role: 'quest_board', name: this.nearbyNPC.name });
 				break;
 			case 'blacksmith':
-				eventBridge.emit('hub-interact', { role: 'blacksmith', name: this.nearbyNPC.name });
+				fetchNPCDialogueAsync(this.nearbyNPC.name, '鍛冶屋。武器や防具を作る職人。');
 				break;
 			case 'alchemist':
-				eventBridge.emit('hub-interact', { role: 'alchemist', name: this.nearbyNPC.name });
+				fetchNPCDialogueAsync(this.nearbyNPC.name, '薬師。回復薬やポーションを調合する。');
 				break;
 		}
 	}

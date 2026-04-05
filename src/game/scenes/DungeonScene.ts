@@ -9,6 +9,7 @@ import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { TileType, type DungeonMap } from '../map/DungeonMap';
 import { cartToIso } from '../iso/IsoHelper';
+import { fetchFlavorTextAsync } from '$lib/utils/geminiClient';
 import { FogOfWar } from '../systems/FogOfWar';
 import { TorchLight } from '../systems/TorchLight';
 
@@ -50,6 +51,9 @@ export class DungeonScene extends Scene {
 
 		eventBridge.emit(GameEvents.CURRENT_SCENE_READY, { scene: 'DungeonScene' });
 		eventBridge.emit(GameEvents.DUNGEON_FLOOR_CHANGED, this.currentFloor);
+
+		// Fetch flavor text for this floor (async, non-blocking)
+		fetchFlavorTextAsync(this.currentFloor);
 	}
 
 	private generateDungeon(): void {

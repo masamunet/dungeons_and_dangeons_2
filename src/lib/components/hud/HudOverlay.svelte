@@ -10,6 +10,8 @@
 
 	let flavorText = $state('');
 	let showFlavorText = $state(false);
+	let npcDialogue = $state({ name: '', text: '' });
+	let showNpcDialogue = $state(false);
 
 	function onHealthChanged(data: { current: number; max: number }) {
 		playerHealth.set(data);
@@ -33,12 +35,18 @@
 		setTimeout(() => { showFlavorText = false; }, 5000);
 	}
 
+	function onNpcDialogue(data: { name: string; text: string }) {
+		npcDialogue = data;
+		showNpcDialogue = true;
+	}
+
 	onMount(() => {
 		eventBridge.on(GameEvents.PLAYER_HEALTH_CHANGED, onHealthChanged);
 		eventBridge.on(GameEvents.PLAYER_STAMINA_CHANGED, onStaminaChanged);
 		eventBridge.on(GameEvents.DUNGEON_FLOOR_CHANGED, onFloorChanged);
 		eventBridge.on(GameEvents.FLAVOR_TEXT_RECEIVED, onFlavorTextReceived);
 		eventBridge.on(GameEvents.CURRENT_SCENE_READY, onSceneReady);
+		eventBridge.on('npc-dialogue', onNpcDialogue);
 	});
 
 	onDestroy(() => {
@@ -47,6 +55,7 @@
 		eventBridge.off(GameEvents.DUNGEON_FLOOR_CHANGED, onFloorChanged);
 		eventBridge.off(GameEvents.FLAVOR_TEXT_RECEIVED, onFlavorTextReceived);
 		eventBridge.off(GameEvents.CURRENT_SCENE_READY, onSceneReady);
+		eventBridge.off('npc-dialogue', onNpcDialogue);
 	});
 </script>
 
@@ -89,6 +98,20 @@
 		<span>TAB: Skills</span>
 	</div>
 </div>
+
+<!-- NPC dialogue -->
+{#if showNpcDialogue}
+	<div class="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-auto">
+		<div class="w-96 bg-gray-950/95 border border-amber-900/60 rounded-lg px-5 py-4">
+			<div class="text-xs text-amber-400 font-bold mb-2">{npcDialogue.name}</div>
+			<p class="text-sm text-gray-300 leading-relaxed font-serif">{npcDialogue.text}</p>
+			<button
+				onclick={() => showNpcDialogue = false}
+				class="mt-3 text-xs text-gray-500 hover:text-gray-300 border border-gray-700 px-3 py-1 rounded"
+			>閉じる</button>
+		</div>
+	</div>
+{/if}
 
 <!-- Center: Flavor text overlay -->
 {#if showFlavorText}
