@@ -50,30 +50,31 @@ export class MapRenderer {
 		top.setDepth(depth);
 		sprites.push(top);
 
-		// 2. LEFT face (south-west) - draw if no wall to iso-south-west
-		//    In cartesian: +y direction = iso south-west
-		const hasWallSW = !map.isWalkable(x, y + 1) && map.getTile(x, y + 1) === TileType.WALL;
+		// Diamond points relative to iso center:
+		// left = (iso.x - 32, iso.y), bottom = (iso.x, iso.y + 16), right = (iso.x + 32, iso.y)
+
+		// 2. LEFT face (SW) - anchored at diamond left point
+		const hasWallSW = map.getTile(x, y + 1) === TileType.WALL;
 		if (!hasWallSW) {
 			const left = scene.add.image(
-				iso.x - ISO_TILE_WIDTH / 4,          // shift left by quarter tile
-				iso.y + ISO_TILE_HEIGHT / 2,          // shift down to bottom of diamond
+				iso.x - ISO_TILE_WIDTH / 2,  // diamond left point X
+				iso.y,                        // diamond left point Y
 				'wall_left'
 			);
-			left.setOrigin(0.5, 0);                   // anchor at top
+			left.setOrigin(0, 0);
 			left.setDepth(depth + 1);
 			sprites.push(left);
 		}
 
-		// 3. RIGHT face (south-east) - draw if no wall to iso-south-east
-		//    In cartesian: +x direction = iso south-east
-		const hasWallSE = !map.isWalkable(x + 1, y) && map.getTile(x + 1, y) === TileType.WALL;
+		// 3. RIGHT face (SE) - anchored so (0,16) hits diamond bottom, (32,0) hits diamond right
+		const hasWallSE = map.getTile(x + 1, y) === TileType.WALL;
 		if (!hasWallSE) {
 			const right = scene.add.image(
-				iso.x + ISO_TILE_WIDTH / 4,           // shift right by quarter tile
-				iso.y + ISO_TILE_HEIGHT / 2,           // shift down to bottom of diamond
+				iso.x,                        // texture (0,0) at diamond center X
+				iso.y,                        // texture (0,0) at diamond center Y
 				'wall_right'
 			);
-			right.setOrigin(0.5, 0);                   // anchor at top
+			right.setOrigin(0, 0);
 			right.setDepth(depth + 1);
 			sprites.push(right);
 		}

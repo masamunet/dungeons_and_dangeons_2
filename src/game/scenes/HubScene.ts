@@ -69,26 +69,26 @@ export class HubScene extends Scene {
 				if (isEdge) {
 					// Top face
 					this.add.image(iso.x, iso.y, 'wall_top').setDepth(isoDepth(x, y));
-					// Left face if no wall at (x, y+1)
-					const noWallSW = !(y + 1 < HUB_HEIGHT && (x === 0 || y + 1 === HUB_HEIGHT - 1 || x === HUB_WIDTH - 1));
-					if (noWallSW || y === HUB_HEIGHT - 1) {
+					// Left face (SW) if no wall at (x, y+1)
+					const isWallSW = y + 1 < HUB_HEIGHT && (x === 0 || y + 1 === HUB_HEIGHT - 1 || x === HUB_WIDTH - 1);
+					if (!isWallSW) {
 						const left = this.add.image(
-							iso.x - ISO_TILE_WIDTH / 4,
-							iso.y + ISO_TILE_HEIGHT / 2,
+							iso.x - ISO_TILE_WIDTH / 2,
+							iso.y,
 							'wall_left'
 						);
-						left.setOrigin(0.5, 0);
+						left.setOrigin(0, 0);
 						left.setDepth(isoDepth(x, y) + 1);
 					}
-					// Right face if no wall at (x+1, y)
-					const noWallSE = !(x + 1 < HUB_WIDTH && (y === 0 || x + 1 === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1));
-					if (noWallSE || x === HUB_WIDTH - 1) {
+					// Right face (SE) if no wall at (x+1, y)
+					const isWallSE = x + 1 < HUB_WIDTH && (y === 0 || x + 1 === HUB_WIDTH - 1 || y === HUB_HEIGHT - 1);
+					if (!isWallSE) {
 						const right = this.add.image(
-							iso.x + ISO_TILE_WIDTH / 4,
-							iso.y + ISO_TILE_HEIGHT / 2,
+							iso.x,
+							iso.y,
 							'wall_right'
 						);
-						right.setOrigin(0.5, 0);
+						right.setOrigin(0, 0);
 						right.setDepth(isoDepth(x, y) + 1);
 					}
 				} else {

@@ -60,33 +60,42 @@ export class BootScene extends Scene {
 		wallTopG.destroy();
 
 		// LEFT face (south-west face, darker)
+		// Parallelogram: left edge of diamond → drops straight down by WALL_HEIGHT
+		// Texture size: W/2 x (H/2 + WALL_HEIGHT) = 32 x 40
+		// In texture coords: top-left(0,0)=diamond left, top-right(32,16)=diamond bottom
+		const LW = W / 2;  // 32
+		const LH = H / 2 + WALL_HEIGHT; // 16 + 24 = 40
 		const wallLeftG = this.make.graphics({ add: false });
 		wallLeftG.fillStyle(0x121220);
 		wallLeftG.beginPath();
-		wallLeftG.moveTo(W / 2, 0);             // diamond left point (local coords)
-		wallLeftG.lineTo(W, H / 2);             // diamond bottom point
-		wallLeftG.lineTo(W, H / 2 + WALL_HEIGHT);
-		wallLeftG.lineTo(W / 2, WALL_HEIGHT);
+		wallLeftG.moveTo(0, 0);           // diamond left point
+		wallLeftG.lineTo(LW, H / 2);     // diamond bottom point
+		wallLeftG.lineTo(LW, H / 2 + WALL_HEIGHT); // bottom-right
+		wallLeftG.lineTo(0, WALL_HEIGHT); // bottom-left
 		wallLeftG.closePath();
 		wallLeftG.fillPath();
 		wallLeftG.lineStyle(1, 0x0a0a16);
-		wallLeftG.lineBetween(W / 2, WALL_HEIGHT, W, H / 2 + WALL_HEIGHT);
-		wallLeftG.generateTexture('wall_left', W, H / 2 + WALL_HEIGHT);
+		wallLeftG.lineBetween(0, WALL_HEIGHT, LW, H / 2 + WALL_HEIGHT);
+		wallLeftG.generateTexture('wall_left', LW, LH);
 		wallLeftG.destroy();
 
 		// RIGHT face (south-east face, slightly lighter)
+		// Texture size: W/2 x (H/2 + WALL_HEIGHT) = 32 x 40
+		// In texture coords: top-left(0,16)=diamond bottom, top-right(32,0)=diamond right
+		const RW = W / 2;  // 32
+		const RH = H / 2 + WALL_HEIGHT; // 40
 		const wallRightG = this.make.graphics({ add: false });
 		wallRightG.fillStyle(0x18182a);
 		wallRightG.beginPath();
-		wallRightG.moveTo(0, H / 2);            // diamond bottom point (local coords)
-		wallRightG.lineTo(W / 2, 0);            // diamond right point
-		wallRightG.lineTo(W / 2, WALL_HEIGHT);
-		wallRightG.lineTo(0, H / 2 + WALL_HEIGHT);
+		wallRightG.moveTo(0, H / 2);           // diamond bottom point
+		wallRightG.lineTo(RW, 0);              // diamond right point
+		wallRightG.lineTo(RW, WALL_HEIGHT);    // bottom-right
+		wallRightG.lineTo(0, H / 2 + WALL_HEIGHT); // bottom-left
 		wallRightG.closePath();
 		wallRightG.fillPath();
 		wallRightG.lineStyle(1, 0x0a0a16);
-		wallRightG.lineBetween(0, H / 2 + WALL_HEIGHT, W / 2, WALL_HEIGHT);
-		wallRightG.generateTexture('wall_right', W, H / 2 + WALL_HEIGHT);
+		wallRightG.lineBetween(0, H / 2 + WALL_HEIGHT, RW, WALL_HEIGHT);
+		wallRightG.generateTexture('wall_right', RW, RH);
 		wallRightG.destroy();
 
 		// --- Stairs down tile ---
