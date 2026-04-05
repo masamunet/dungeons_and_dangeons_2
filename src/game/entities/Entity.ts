@@ -92,14 +92,14 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		const iso = cartToIso(tileXFrac, tileYFrac);
 		const depth = isoDepth(tileXFrac, tileYFrac, 5);
 
-		// Update visual sprite — depth ABOVE fog layer (9000+)
+		// Update visual sprite — same depth space as tiles for proper occlusion
 		this.visual.setPosition(iso.x, iso.y);
-		this.visual.setDepth(9100 + depth);
+		this.visual.setDepth(depth);
 
-		// Update shadow — just below visual, still above fog
+		// Update shadow
 		if (this.shadow) {
 			this.shadow.setPosition(iso.x, iso.y + 10);
-			this.shadow.setDepth(9100 + depth - 0.1);
+			this.shadow.setDepth(depth - 0.1);
 			this.shadow.setVisible(this.visual.visible);
 			this.shadow.setAlpha(this.visual.alpha * 0.5);
 		}

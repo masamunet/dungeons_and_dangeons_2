@@ -38,11 +38,12 @@ export class MapRenderer {
 					}
 					case TileType.WALL: {
 						if (this.isAdjacentToWalkable(dungeonMap, x, y)) {
-							// Wall has extra height, anchor at bottom of the diamond face
+							// Wall has extra height (extruded sides extend downward)
 							const wallImg = scene.add.image(isoPos.x, isoPos.y, 'tile_wall');
-							// Offset upward by half the wall extra height so the base aligns
 							wallImg.setOrigin(0.5, 1 - (ISO_TILE_HEIGHT / 2) / (ISO_TILE_HEIGHT + WALL_EXTRA_HEIGHT));
-							wallImg.setDepth(depth + 1);
+							// Walls need higher depth to occlude entities behind them.
+							// The extrusion extends ~1 tile south visually, so add extra depth.
+							wallImg.setDepth(depth + 8);
 							wallPositions.push({ x: isoPos.x, y: isoPos.y, tileX: x, tileY: y });
 						}
 						break;
