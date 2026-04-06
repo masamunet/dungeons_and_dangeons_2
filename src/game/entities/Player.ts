@@ -81,7 +81,7 @@ export class Player extends Entity {
 				if (this.stateTimer > 300) this.setState('idle');
 				break;
 			case 'staggered':
-				this.handleStaggerState();
+				this.handleStaggerState(delta);
 				break;
 			case 'dead':
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
@@ -260,11 +260,11 @@ export class Player extends Entity {
 
 	// --- Stagger ---
 
-	private handleStaggerState(): void {
-		// Let knockback velocity decay naturally via drag, only zero after initial slide
+	private handleStaggerState(delta: number): void {
+		// Delta-based exponential decay (frame-rate independent, reference: 60fps = 16.67ms)
 		const body = this.body as Phaser.Physics.Arcade.Body;
-		const vel = body.velocity;
-		body.setVelocity(vel.x * 0.85, vel.y * 0.85);
+		const decay = Math.pow(PLAYER_CONFIG.knockbackDecayRate, delta / 16.67);
+		body.setVelocity(body.velocity.x * decay, body.velocity.y * decay);
 		if (this.stateTimer > PLAYER_CONFIG.staggerDurationMs) {
 			body.setVelocity(0, 0);
 			this.clearVisualTint();
@@ -297,6 +297,7 @@ export class Player extends Entity {
 			this.scene.cameras.main.flash(80, 255, 255, 255);
 			this.setVisualTint(0xffffff);
 			this.scene.time.delayedCall(150, () => {
+				if (!this.active) return;
 				if (this.currentState === 'guarding') this.setVisualTint(Player.GUARD_TINT);
 				else this.clearVisualTint();
 			});
@@ -320,6 +321,7 @@ export class Player extends Entity {
 				);
 				this.setVisualTint(0x2266cc);
 				this.scene.time.delayedCall(100, () => {
+					if (!this.active) return;
 					if (this.currentState === 'guarding') this.setVisualTint(Player.GUARD_TINT);
 				});
 				return;
@@ -352,7 +354,7 @@ export class Player extends Entity {
 				this.setState('hit_stun');
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
 				this.setVisualTint(0xff0000);
-				this.scene.time.delayedCall(200, () => this.clearVisualTint());
+				this.scene.time.delayedCall(200, () => { if (this.active) this.clearVisualTint(); });
 			}
 		}
 	}

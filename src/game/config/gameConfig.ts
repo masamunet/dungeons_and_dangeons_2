@@ -38,6 +38,7 @@ export const PLAYER_CONFIG = {
 	staggerChance: 0.2,             // 20% chance to stagger on hit
 	staggerDurationMs: 500,         // Stagger duration
 	staggerKnockbackMultiplier: 1.5, // Knockback multiplier on stagger
+	knockbackDecayRate: 0.85,       // Per-frame velocity decay (at 60fps reference)
 };
 
 export const ENEMY_CONFIG = {
@@ -56,5 +57,6 @@ export const ENEMY_CONFIG = {
 		staggerChance: 0.2,
 		staggerDurationMs: 500,
 		staggerKnockbackMultiplier: 1.5,
+		knockbackDecayRate: 0.85,
 	},
 };
