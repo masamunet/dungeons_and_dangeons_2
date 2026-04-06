@@ -76,8 +76,10 @@ export class DungeonMap {
 		const sx = ix0 < ix1 ? 1 : -1;
 		const sy = iy0 < iy1 ? 1 : -1;
 		let err = dx - dy;
+		const maxIterations = dx + dy + 2; // Safety: max tiles in path
+		let iterations = 0;
 
-		while (true) {
+		while (iterations++ <= maxIterations) {
 			// Skip start and end tiles (entities may be at wall edges)
 			const isStart = ix0 === startTileX && iy0 === startTileY;
 			const isEnd = ix0 === ix1 && iy0 === iy1;
