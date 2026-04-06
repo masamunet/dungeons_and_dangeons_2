@@ -25,7 +25,7 @@ export class Player extends Entity {
 	private iframeDuration = 0;
 
 	// Guard / Parry
-	private static readonly GUARD_TINT = Player.GUARD_TINT;
+	private static readonly GUARD_TINT = 0x4488ff;
 	private guardStartTime = 0;
 
 	// Just Dodge
@@ -310,7 +310,10 @@ export class Player extends Entity {
 				const reducedDamage = Math.floor(damage * (1 - PLAYER_CONFIG.guardDamageReduction));
 				this.health.takeDamage(reducedDamage);
 				// Reduced knockback while guarding
-				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 0.3, knockbackY * 0.3);
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(
+					knockbackX * PLAYER_CONFIG.guardKnockbackMultiplier,
+					knockbackY * PLAYER_CONFIG.guardKnockbackMultiplier
+				);
 				this.setVisualTint(0x2266cc);
 				this.scene.time.delayedCall(100, () => {
 					if (this.currentState === 'guarding') this.setVisualTint(Player.GUARD_TINT);
@@ -328,7 +331,10 @@ export class Player extends Entity {
 			// Stagger check
 			if (Math.random() < PLAYER_CONFIG.staggerChance) {
 				this.setState('staggered');
-				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 1.5, knockbackY * 1.5);
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(
+					knockbackX * PLAYER_CONFIG.staggerKnockbackMultiplier,
+					knockbackY * PLAYER_CONFIG.staggerKnockbackMultiplier
+				);
 				this.setVisualTint(0xff8800);
 				// Kill existing wobble tweens before adding new one
 				this.scene.tweens.killTweensOf(this.visual);

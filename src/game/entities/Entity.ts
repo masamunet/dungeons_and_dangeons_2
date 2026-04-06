@@ -46,6 +46,8 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		}
 
 		this.health.onDeath(() => {
+			this.scene.tweens.killTweensOf(this.visual);
+			this.clearVisualTint();
 			this.setState('dead');
 		});
 

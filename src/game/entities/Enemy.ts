@@ -239,7 +239,10 @@ export class Enemy extends Entity {
 			// Stagger check using enemy-specific config
 			if (Math.random() < this.config.staggerChance) {
 				// Apply knockback even when staggered (stronger)
-				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 1.5, knockbackY * 1.5);
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(
+					knockbackX * this.config.staggerKnockbackMultiplier,
+					knockbackY * this.config.staggerKnockbackMultiplier
+				);
 				this.applyStun(this.config.staggerDurationMs);
 			} else {
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);

@@ -24,7 +24,6 @@ export class DungeonScene extends Scene {
 	private mapRenderer: MapRenderer | null = null;
 	private fogOfWar: FogOfWar | null = null;
 	private torchLight: TorchLight | null = null;
-	private slowMoTimer: Phaser.Time.TimerEvent | null = null;
 
 	constructor() {
 		super('DungeonScene');
@@ -220,6 +219,7 @@ export class DungeonScene extends Scene {
 
 		this.inputManager.postUpdate();
 		this.checkStairsInteraction();
+		this.checkSlowMoEnd();
 
 		// ESC to return to hub
 		if (this.inputManager.isActionJustPressed(InputAction.PAUSE)) {
@@ -316,31 +316,27 @@ export class DungeonScene extends Scene {
 		});
 	}
 
+	private slowMoEndTime = 0;
+
 	private handleJustDodgeSlowMo(): void {
-		// Cancel any existing slow-mo timer
-		if (this.slowMoTimer) {
-			this.slowMoTimer.destroy();
-			this.slowMoTimer = null;
-		}
-		this.time.timeScale = 0.3;
+		this.time.timeScale = PLAYER_CONFIG.justDodgeSlowMoScale;
 		this.cameras.main.flash(100, 100, 150, 255);
-		// Use a real-time delayed call (not affected by timeScale)
-		this.slowMoTimer = this.time.addEvent({
-			delay: PLAYER_CONFIG.justDodgeSlowMoMs / 0.3, // compensate for timeScale
-			callback: () => {
-				this.time.timeScale = 1.0;
-				this.slowMoTimer = null;
-			},
-		});
+		// Use real-time clock to avoid timeScale affecting the restoration delay
+		this.slowMoEndTime = performance.now() + PLAYER_CONFIG.justDodgeSlowMoMs;
+	}
+
+	/** Called from update() to check if slow-mo should end (real-time based) */
+	private checkSlowMoEnd(): void {
+		if (this.slowMoEndTime > 0 && performance.now() >= this.slowMoEndTime) {
+			this.time.timeScale = 1.0;
+			this.slowMoEndTime = 0;
+		}
 	}
 
 	private cleanup(): void {
 		// Restore timeScale on cleanup
 		this.time.timeScale = 1.0;
-		if (this.slowMoTimer) {
-			this.slowMoTimer.destroy();
-			this.slowMoTimer = null;
-		}
+		this.slowMoEndTime = 0;
 		this.enemies.forEach((e) => e.destroy());
 		this.enemies = [];
 		this.wallBodies?.clear(true, true);

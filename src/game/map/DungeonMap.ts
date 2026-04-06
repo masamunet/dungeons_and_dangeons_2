@@ -86,8 +86,16 @@ export class DungeonMap {
 			}
 			if (isEnd) break;
 			const e2 = 2 * err;
-			if (e2 > -dy) { err -= dy; ix0 += sx; }
-			if (e2 < dx) { err += dx; iy0 += sy; }
+			const stepX = e2 > -dy;
+			const stepY = e2 < dx;
+			// Diagonal step: check both intermediate tiles to prevent corner cutting
+			if (stepX && stepY) {
+				if (!this.isWalkable(ix0 + sx, iy0) && !this.isWalkable(ix0, iy0 + sy)) {
+					return false; // Both adjacent tiles are walls — blocked diagonal
+				}
+			}
+			if (stepX) { err -= dy; ix0 += sx; }
+			if (stepY) { err += dx; iy0 += sy; }
 		}
 		return true;
 	}
