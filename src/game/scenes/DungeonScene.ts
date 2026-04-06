@@ -337,6 +337,9 @@ export class DungeonScene extends Scene {
 		// Restore timeScale on cleanup
 		this.time.timeScale = 1.0;
 		this.slowMoEndTime = 0;
+		// Remove scene event listeners to prevent accumulation on restart
+		this.events.off('player-attack', this.handlePlayerAttack, this);
+		this.events.off('just-dodge-triggered', this.handleJustDodgeSlowMo, this);
 		this.enemies.forEach((e) => e.destroy());
 		this.enemies = [];
 		this.wallBodies?.clear(true, true);

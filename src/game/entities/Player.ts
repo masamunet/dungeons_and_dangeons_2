@@ -336,11 +336,13 @@ export class Player extends Entity {
 					knockbackY * PLAYER_CONFIG.staggerKnockbackMultiplier
 				);
 				this.setVisualTint(0xff8800);
-				// Kill existing wobble tweens before adding new one
-				this.scene.tweens.killTweensOf(this.visual);
+				// Wobble effect via visualOffsetX (applied in updateIsoPosition)
+				this.visualOffsetX = 0;
+				this.scene.tweens.killTweensOf(this);
 				this.scene.tweens.add({
-					targets: this.visual,
-					x: { value: '+=3', yoyo: true, repeat: 3, duration: 60 },
+					targets: this,
+					visualOffsetX: { from: -3, to: 3, yoyo: true, repeat: 3, duration: 60 },
+					onComplete: () => { this.visualOffsetX = 0; },
 				});
 			} else {
 				this.setState('hit_stun');

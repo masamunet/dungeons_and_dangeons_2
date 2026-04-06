@@ -23,6 +23,8 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 	private shadow: GameObjects.Image | null = null;
 
 	protected stateTimer = 0;
+	/** Horizontal visual offset for effects like wobble (in iso screen pixels) */
+	visualOffsetX = 0;
 
 	constructor(scene: Scene, cartX: number, cartY: number, texture: string, maxHealth: number) {
 		// Physics sprite is invisible, stays in cartesian space
@@ -46,7 +48,8 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		}
 
 		this.health.onDeath(() => {
-			this.scene.tweens.killTweensOf(this.visual);
+			this.scene.tweens.killTweensOf(this);
+			this.visualOffsetX = 0;
 			this.clearVisualTint();
 			this.setState('dead');
 		});
@@ -98,7 +101,7 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 		const depth = isoDepth(tileXFrac, tileYFrac);
 
 		// Update visual sprite — same depth space as tiles for proper occlusion
-		this.visual.setPosition(iso.x, iso.y);
+		this.visual.setPosition(iso.x + this.visualOffsetX, iso.y);
 		this.visual.setDepth(depth);
 
 		// Shadow at feet position (origin 0.875 on 24px sprite = 3px below iso.y)

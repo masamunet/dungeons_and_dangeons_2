@@ -224,11 +224,13 @@ export class Enemy extends Entity {
 		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 		this.setVisualTint(0xffff00);
 		this.setState('staggered');
-		// Kill existing wobble tweens before adding new one
-		this.scene.tweens.killTweensOf(this.visual);
+		// Wobble effect via visualOffsetX (applied in updateIsoPosition)
+		this.visualOffsetX = 0;
+		this.scene.tweens.killTweensOf(this);
 		this.scene.tweens.add({
-			targets: this.visual,
-			x: { value: '+=3', yoyo: true, repeat: 5, duration: 50 },
+			targets: this,
+			visualOffsetX: { from: -3, to: 3, yoyo: true, repeat: 5, duration: 50 },
+			onComplete: () => { this.visualOffsetX = 0; },
 		});
 	}
 
