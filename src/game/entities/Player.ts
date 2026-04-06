@@ -184,7 +184,7 @@ export class Player extends Entity {
 
 		this.setState('dodging');
 		this.dodgeCooldown = DODGE_COOLDOWN;
-		this.dodgeStartTime = this.scene.time.now;
+		this.dodgeStartTime = performance.now();
 		this.justDodgeTriggered = false;
 
 		this.iframeTimer = DODGE_IFRAME_START;
@@ -226,7 +226,7 @@ export class Player extends Entity {
 	private startGuard(): void {
 		if (this.currentState === 'guarding') return;
 		this.setState('guarding');
-		this.guardStartTime = this.scene.time.now;
+		this.guardStartTime = performance.now();
 		this.setVisualTint(Player.GUARD_TINT);
 	}
 
@@ -255,7 +255,7 @@ export class Player extends Entity {
 	/** Whether the player is in parry window (first 150ms of guard) */
 	isInParryWindow(): boolean {
 		if (this.currentState !== 'guarding') return false;
-		return (this.scene.time.now - this.guardStartTime) < PLAYER_CONFIG.parryWindowMs;
+		return (performance.now() - this.guardStartTime) < PLAYER_CONFIG.parryWindowMs;
 	}
 
 	// --- Stagger ---
@@ -278,7 +278,7 @@ export class Player extends Entity {
 	isInJustDodgeWindow(): boolean {
 		if (this.currentState !== 'dodging') return false;
 		if (this.justDodgeTriggered) return false;
-		return (this.scene.time.now - this.dodgeStartTime) < PLAYER_CONFIG.justDodgeWindowMs;
+		return (performance.now() - this.dodgeStartTime) < PLAYER_CONFIG.justDodgeWindowMs;
 	}
 
 	markJustDodgeTriggered(): void {

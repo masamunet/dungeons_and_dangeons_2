@@ -32,7 +32,7 @@ export class Enemy extends Entity {
 
 		this.health.onDeath(() => {
 			eventBridge.emit(GameEvents.ENEMY_KILLED, { x: this.x, y: this.y });
-			this.scene.time.delayedCall(300, () => this.destroy());
+			this.scene.time.delayedCall(300, () => { if (this.active) this.destroy(); });
 		});
 	}
 
@@ -219,12 +219,14 @@ export class Enemy extends Entity {
 		}
 	}
 
-	applyStun(durationMs: number): void {
+	applyStun(durationMs: number, preserveVelocity = false): void {
 		this.aiState = 'stunned';
 		this.stunTimer = durationMs;
 		this.attackPhase = 'none';
 		this.attackTimer = 0;
-		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+		if (!preserveVelocity) {
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+		}
 		this.setVisualTint(0xffff00);
 		this.setState('staggered');
 		// Wobble effect via visualOffsetX (applied in updateIsoPosition)
@@ -243,12 +245,12 @@ export class Enemy extends Entity {
 		if (!this.health.isDead) {
 			// Stagger check using enemy-specific config
 			if (Math.random() < this.config.staggerChance) {
-				// Apply knockback even when staggered (stronger)
+				// Apply knockback before stun (preserveVelocity to keep it)
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(
 					knockbackX * this.config.staggerKnockbackMultiplier,
 					knockbackY * this.config.staggerKnockbackMultiplier
 				);
-				this.applyStun(this.config.staggerDurationMs);
+				this.applyStun(this.config.staggerDurationMs, true);
 			} else {
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
 				this.setVisualTint(0xff0000);

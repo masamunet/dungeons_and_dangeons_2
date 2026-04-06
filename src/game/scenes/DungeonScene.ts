@@ -24,6 +24,7 @@ export class DungeonScene extends Scene {
 	private mapRenderer: MapRenderer | null = null;
 	private fogOfWar: FogOfWar | null = null;
 	private torchLight: TorchLight | null = null;
+	private slowMoEndTime = 0;
 
 	// Bound handlers for eventBridge (needed for off())
 	private onPauseRequested = () => { this.scene.pause(); this.physics.pause(); };
@@ -313,8 +314,6 @@ export class DungeonScene extends Scene {
 			this.scene.start('HubScene');
 		});
 	}
-
-	private slowMoEndTime = 0;
 
 	private handleJustDodgeSlowMo(): void {
 		const scale = PLAYER_CONFIG.justDodgeSlowMoScale;
