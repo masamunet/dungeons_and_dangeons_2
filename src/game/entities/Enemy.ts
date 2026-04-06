@@ -57,7 +57,9 @@ export class Enemy extends Entity {
 		// Handle stun
 		if (this.aiState === 'stunned') {
 			this.stunTimer -= delta;
-			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+			// Decay knockback velocity during stun
+			const body = this.body as Phaser.Physics.Arcade.Body;
+			body.setVelocity(body.velocity.x * 0.85, body.velocity.y * 0.85);
 			if (this.stunTimer <= 0) {
 				this.aiState = 'chase';
 				this.aiTimer = 0;

@@ -261,8 +261,12 @@ export class Player extends Entity {
 	// --- Stagger ---
 
 	private handleStaggerState(): void {
-		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+		// Let knockback velocity decay naturally via drag, only zero after initial slide
+		const body = this.body as Phaser.Physics.Arcade.Body;
+		const vel = body.velocity;
+		body.setVelocity(vel.x * 0.85, vel.y * 0.85);
 		if (this.stateTimer > PLAYER_CONFIG.staggerDurationMs) {
+			body.setVelocity(0, 0);
 			this.clearVisualTint();
 			this.setState('idle');
 		}

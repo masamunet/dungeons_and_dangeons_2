@@ -35,10 +35,11 @@
 			closeSkillTree();
 			return;
 		}
-		// Block game input while skill tree is open
+		// Block game input while skill tree is open, but let
+		// SkillTree's own bubble-phase handler receive navigation keys
 		if (showSkillTree) {
 			e.preventDefault();
-			e.stopPropagation();
+			// Don't stopPropagation — SkillTree needs WASD/arrows/Q/E/Enter/Space
 		}
 	}
 
