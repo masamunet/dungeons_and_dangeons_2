@@ -110,6 +110,7 @@
 		{#if currentScene === 'DungeonScene'}
 			<span>J: Attack</span>
 			<span>K: Dodge</span>
+			<span>L: Guard</span>
 			<span>ESC: Return</span>
 		{/if}
 		<span>E: Interact</span>

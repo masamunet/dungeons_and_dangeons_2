@@ -1,13 +1,16 @@
 import { Scene } from 'phaser';
 import { Entity } from './Entity';
 import type { Player } from './Player';
-import { ENEMY_CONFIG } from '../config/gameConfig';
+import type { DungeonMap } from '../map/DungeonMap';
+import { ENEMY_CONFIG, PLAYER_CONFIG } from '../config/gameConfig';
+import { TILE_SIZE } from '$lib/utils/constants';
 import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 
-type AIState = 'patrol' | 'chase' | 'attack' | 'cooldown';
+type AIState = 'patrol' | 'chase' | 'attack' | 'cooldown' | 'stunned';
 
 export class Enemy extends Entity {
 	private target: Player | null = null;
+	private dungeonMap: DungeonMap | null = null;
 	private aiState: AIState = 'patrol';
 	private aiTimer = 0;
 	private config = ENEMY_CONFIG.skeleton;
@@ -16,6 +19,7 @@ export class Enemy extends Entity {
 	private attackTimer = 0;
 	private homeX: number;
 	private homeY: number;
+	private stunTimer = 0;
 
 	constructor(scene: Scene, x: number, y: number) {
 		super(scene, x, y, 'enemy_skeleton', ENEMY_CONFIG.skeleton.maxHealth);
@@ -36,6 +40,10 @@ export class Enemy extends Entity {
 		this.target = player;
 	}
 
+	setDungeonMap(map: DungeonMap): void {
+		this.dungeonMap = map;
+	}
+
 	update(_time: number, delta: number): void {
 		if (this.currentState === 'dead') {
 			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
@@ -45,6 +53,20 @@ export class Enemy extends Entity {
 
 		this.stateTimer += delta;
 		this.aiTimer += delta;
+
+		// Handle stun
+		if (this.aiState === 'stunned') {
+			this.stunTimer -= delta;
+			(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+			if (this.stunTimer <= 0) {
+				this.aiState = 'chase';
+				this.aiTimer = 0;
+				this.clearVisualTint();
+				this.setState('idle');
+			}
+			this.updateIsoPosition();
+			return;
+		}
 
 		const distToPlayer = this.target
 			? Phaser.Math.Distance.Between(this.cartX, this.cartY, this.target.cartX, this.target.cartY)
@@ -165,26 +187,69 @@ export class Enemy extends Entity {
 		if (!this.target) return;
 		const dist = Phaser.Math.Distance.Between(this.cartX, this.cartY, this.target.cartX, this.target.cartY);
 		if (dist < this.config.attackRange + 16) {
+			// Line of sight check: don't hit through walls
+			if (this.dungeonMap) {
+				const myTX = this.cartX / TILE_SIZE;
+				const myTY = this.cartY / TILE_SIZE;
+				const targetTX = this.target.cartX / TILE_SIZE;
+				const targetTY = this.target.cartY / TILE_SIZE;
+				if (!this.dungeonMap.hasLineOfSight(myTX, myTY, targetTX, targetTY)) return;
+			}
+
 			const dx = this.target.cartX - this.cartX;
 			const dy = this.target.cartY - this.cartY;
 			const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
+			// Check just-dodge: if player is in just-dodge window during enemy attack
+			if (this.target.isInJustDodgeWindow()) {
+				this.target.markJustDodgeTriggered();
+				// Trigger slow-mo effect
+				this.scene.time.timeScale = 0.3;
+				this.scene.cameras.main.flash(100, 100, 150, 255);
+				this.scene.time.delayedCall(PLAYER_CONFIG.justDodgeSlowMoMs, () => {
+					this.scene.time.timeScale = 1.0;
+				});
+				return; // Attack misses
+			}
+
 			this.target.applyHit(
 				this.config.damage,
 				(dx / len) * this.config.knockback,
-				(dy / len) * this.config.knockback
+				(dy / len) * this.config.knockback,
+				this
 			);
 		}
+	}
+
+	applyStun(durationMs: number): void {
+		this.aiState = 'stunned';
+		this.stunTimer = durationMs;
+		this.attackPhase = 'none';
+		this.attackTimer = 0;
+		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+		this.setVisualTint(0xffff00);
+		this.setState('staggered');
+		// Wobble tween for stun visual
+		this.scene.tweens.add({
+			targets: this.visual,
+			x: { value: '+=3', yoyo: true, repeat: 5, duration: 50 },
+		});
 	}
 
 	applyHit(damage: number, knockbackX: number, knockbackY: number): void {
 		if (this.isInState('dead')) return;
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
-			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
-			this.setVisualTint(0xff0000);
-			this.scene.time.delayedCall(150, () => {
-				if (this.active) this.clearVisualTint();
-			});
+			// Stagger check for enemies too
+			if (Math.random() < PLAYER_CONFIG.staggerChance) {
+				this.applyStun(PLAYER_CONFIG.staggerDurationMs);
+			} else {
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
+				this.setVisualTint(0xff0000);
+				this.scene.time.delayedCall(150, () => {
+					if (this.active) this.clearVisualTint();
+				});
+			}
 		}
 	}
 }

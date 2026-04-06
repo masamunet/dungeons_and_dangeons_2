@@ -81,7 +81,7 @@ export abstract class Entity extends Physics.Arcade.Sprite {
 	}
 
 	canAct(): boolean {
-		return !this.isInState('attacking', 'dodging', 'hit_stun', 'dead');
+		return !this.isInState('attacking', 'dodging', 'guarding', 'hit_stun', 'staggered', 'dead');
 	}
 
 	/**

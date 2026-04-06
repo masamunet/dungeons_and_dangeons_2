@@ -57,4 +57,33 @@ export class DungeonMap {
 	getStartRoom(): Room {
 		return this.rooms[0];
 	}
+
+	/**
+	 * Check line of sight between two tile coordinates using Bresenham's algorithm.
+	 * Returns true if there are no walls between the two points.
+	 */
+	hasLineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
+		let ix0 = Math.floor(x0);
+		let iy0 = Math.floor(y0);
+		const ix1 = Math.floor(x1);
+		const iy1 = Math.floor(y1);
+
+		const dx = Math.abs(ix1 - ix0);
+		const dy = Math.abs(iy1 - iy0);
+		const sx = ix0 < ix1 ? 1 : -1;
+		const sy = iy0 < iy1 ? 1 : -1;
+		let err = dx - dy;
+
+		while (true) {
+			// Skip the start tile itself
+			if (!(ix0 === Math.floor(x0) && iy0 === Math.floor(y0))) {
+				if (!this.isWalkable(ix0, iy0)) return false;
+			}
+			if (ix0 === ix1 && iy0 === iy1) break;
+			const e2 = 2 * err;
+			if (e2 > -dy) { err -= dy; ix0 += sx; }
+			if (e2 < dx) { err += dx; iy0 += sy; }
+		}
+		return true;
+	}
 }

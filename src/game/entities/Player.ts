@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 import { Entity } from './Entity';
+import type { Enemy } from './Enemy';
 import { StaminaComponent } from './components/StaminaComponent';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
@@ -22,6 +23,13 @@ export class Player extends Entity {
 	private attackPhase: 'none' | 'windup' | 'active' | 'recovery' = 'none';
 	private iframeTimer = 0;
 	private iframeDuration = 0;
+
+	// Guard / Parry
+	private guardStartTime = 0;
+
+	// Just Dodge
+	private dodgeStartTime = 0;
+	private justDodgeTriggered = false;
 
 	constructor(scene: Scene, x: number, y: number, inputManager: InputManager) {
 		super(scene, x, y, 'player', PLAYER_CONFIG.maxHealth);
@@ -65,8 +73,14 @@ export class Player extends Entity {
 			case 'dodging':
 				this.handleDodgeState(delta);
 				break;
+			case 'guarding':
+				this.handleGuardState();
+				break;
 			case 'hit_stun':
 				if (this.stateTimer > 300) this.setState('idle');
+				break;
+			case 'staggered':
+				this.handleStaggerState();
 				break;
 			case 'dead':
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
@@ -100,6 +114,8 @@ export class Player extends Entity {
 			this.startAttack();
 		} else if (this.inputManager.isActionJustPressed(InputAction.DODGE)) {
 			this.startDodge();
+		} else if (this.inputManager.isActionActive(InputAction.GUARD)) {
+			this.startGuard();
 		}
 	}
 
@@ -167,6 +183,8 @@ export class Player extends Entity {
 
 		this.setState('dodging');
 		this.dodgeCooldown = DODGE_COOLDOWN;
+		this.dodgeStartTime = this.scene.time.now;
+		this.justDodgeTriggered = false;
 
 		this.iframeTimer = DODGE_IFRAME_START;
 		this.iframeDuration = DODGE_IFRAME_DURATION;
@@ -202,15 +220,126 @@ export class Player extends Entity {
 		}
 	}
 
-	applyHit(damage: number, knockbackX: number, knockbackY: number): void {
+	// --- Guard ---
+
+	private startGuard(): void {
+		if (this.currentState === 'guarding') return;
+		this.setState('guarding');
+		this.guardStartTime = this.scene.time.now;
+		this.setVisualTint(0x4488ff);
+	}
+
+	private handleGuardState(): void {
+		// Release guard when button is released
+		if (!this.inputManager.isActionActive(InputAction.GUARD)) {
+			this.clearVisualTint();
+			this.setState('idle');
+			return;
+		}
+
+		// Allow slow movement while guarding
+		const screenMove = this.inputManager.getMovementVector();
+		const body = this.body as Phaser.Physics.Arcade.Body;
+
+		if (screenMove.length() > 0.1) {
+			const cartDir = screenDirToCart(screenMove.x, screenMove.y);
+			const guardSpeed = PLAYER_CONFIG.speed * PLAYER_CONFIG.guardSpeedMultiplier;
+			body.setVelocity(cartDir.x * guardSpeed, cartDir.y * guardSpeed);
+			this.facing.set(cartDir.x, cartDir.y);
+		} else {
+			body.setVelocity(0, 0);
+		}
+	}
+
+	/** Whether the player is in parry window (first 150ms of guard) */
+	isInParryWindow(): boolean {
+		if (this.currentState !== 'guarding') return false;
+		return (this.scene.time.now - this.guardStartTime) < PLAYER_CONFIG.parryWindowMs;
+	}
+
+	// --- Stagger ---
+
+	private handleStaggerState(): void {
+		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+		if (this.stateTimer > PLAYER_CONFIG.staggerDurationMs) {
+			this.clearVisualTint();
+			this.setState('idle');
+		}
+	}
+
+	// --- Just Dodge ---
+
+	/** Whether the player is in just-dodge window (first 100ms of dodge) */
+	isInJustDodgeWindow(): boolean {
+		if (this.currentState !== 'dodging') return false;
+		if (this.justDodgeTriggered) return false;
+		return (this.scene.time.now - this.dodgeStartTime) < PLAYER_CONFIG.justDodgeWindowMs;
+	}
+
+	markJustDodgeTriggered(): void {
+		this.justDodgeTriggered = true;
+	}
+
+	// --- Hit handling (with guard/parry/stagger) ---
+
+	applyHit(damage: number, knockbackX: number, knockbackY: number, attackingEnemy?: Enemy | null): void {
 		if (this.isInvincible || this.isInState('dead')) return;
 
+		// Parry check
+		if (this.isInParryWindow()) {
+			// Successful parry: no damage, recover stamina, stun enemy
+			this.stamina.recover(PLAYER_CONFIG.parryStaminaRecover);
+			this.scene.cameras.main.flash(80, 255, 255, 255);
+			this.setVisualTint(0xffffff);
+			this.scene.time.delayedCall(150, () => {
+				if (this.currentState === 'guarding') this.setVisualTint(0x4488ff);
+				else this.clearVisualTint();
+			});
+			if (attackingEnemy && !attackingEnemy.isInState('dead')) {
+				attackingEnemy.applyStun(PLAYER_CONFIG.parryStunDurationMs);
+			}
+			return;
+		}
+
+		// Guard check
+		if (this.isInState('guarding')) {
+			const staminaCost = PLAYER_CONFIG.guardStaminaCostPerHit;
+			if (this.stamina.canSpend(staminaCost)) {
+				this.stamina.spend(staminaCost);
+				const reducedDamage = Math.floor(damage * (1 - PLAYER_CONFIG.guardDamageReduction));
+				this.health.takeDamage(reducedDamage);
+				// Reduced knockback while guarding
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 0.3, knockbackY * 0.3);
+				this.setVisualTint(0x2266cc);
+				this.scene.time.delayedCall(100, () => {
+					if (this.currentState === 'guarding') this.setVisualTint(0x4488ff);
+				});
+				return;
+			}
+			// Stamina exhausted: guard breaks, take full hit
+			this.clearVisualTint();
+			this.setState('idle');
+		}
+
+		// Normal hit
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
-			this.setState('hit_stun');
-			(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
-			this.setVisualTint(0xff0000);
-			this.scene.time.delayedCall(200, () => this.clearVisualTint());
+			// Stagger check
+			if (Math.random() < PLAYER_CONFIG.staggerChance) {
+				this.setState('staggered');
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 1.5, knockbackY * 1.5);
+				this.setVisualTint(0xff8800);
+				// Stagger visual: wobble tween
+				this.scene.tweens.add({
+					targets: this.visual,
+					x: { value: '+=3', yoyo: true, repeat: 3, duration: 60 },
+				});
+			} else {
+				this.setState('hit_stun');
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
+				this.setVisualTint(0xff0000);
+				this.scene.time.delayedCall(200, () => this.clearVisualTint());
+			}
 		}
 	}
 

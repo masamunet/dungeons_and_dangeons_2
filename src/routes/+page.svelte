@@ -29,10 +29,14 @@
 		if (e.key === 'Tab' || e.key === 'i' || e.key === 'I') {
 			e.preventDefault();
 			toggleSkillTree();
+			return;
 		}
 		if (e.key === 'Escape' && showSkillTree) {
 			closeSkillTree();
+			return;
 		}
+		// Don't let other keys propagate to game when skill tree is open
+		// (SkillTree has its own keydown handler for WASD/arrows/etc.)
 	}
 
 	function pollGamepad() {

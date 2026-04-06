@@ -117,6 +117,7 @@ export class DungeonScene extends Scene {
 				spawn.y * TILE_SIZE + TILE_SIZE / 2
 			);
 			enemy.setTarget(this.player);
+			enemy.setDungeonMap(this.dungeonMap);
 			this.enemies.push(enemy);
 		}
 
@@ -247,11 +248,21 @@ export class DungeonScene extends Scene {
 			onComplete: () => hitCircle.destroy(),
 		});
 
-		// Check hit against enemies using cartesian distance
+		// Check hit against enemies using cartesian distance + line of sight
+		const playerTileX = this.player.cartX / TILE_SIZE;
+		const playerTileY = this.player.cartY / TILE_SIZE;
+
 		for (const enemy of this.enemies) {
 			if (!enemy.active || enemy.health.isDead) continue;
 			const dist = Phaser.Math.Distance.Between(data.cartX, data.cartY, enemy.cartX, enemy.cartY);
 			if (dist < data.range + 12) {
+				// Line of sight check: don't hit through walls
+				const enemyTileX = enemy.cartX / TILE_SIZE;
+				const enemyTileY = enemy.cartY / TILE_SIZE;
+				if (!this.dungeonMap.hasLineOfSight(playerTileX, playerTileY, enemyTileX, enemyTileY)) {
+					continue;
+				}
+
 				const dx = enemy.cartX - this.player.cartX;
 				const dy = enemy.cartY - this.player.cartY;
 				const len = Math.sqrt(dx * dx + dy * dy) || 1;
