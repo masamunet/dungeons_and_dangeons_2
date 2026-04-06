@@ -10,6 +10,7 @@ import { Enemy } from '../entities/Enemy';
 import { TileType, type DungeonMap } from '../map/DungeonMap';
 import { cartToIso } from '../iso/IsoHelper';
 import { fetchFlavorTextAsync } from '$lib/utils/geminiClient';
+import { PLAYER_CONFIG } from '../config/gameConfig';
 import { FogOfWar } from '../systems/FogOfWar';
 import { TorchLight } from '../systems/TorchLight';
 
@@ -23,6 +24,11 @@ export class DungeonScene extends Scene {
 	private mapRenderer: MapRenderer | null = null;
 	private fogOfWar: FogOfWar | null = null;
 	private torchLight: TorchLight | null = null;
+	private slowMoEndTime = 0;
+
+	// Bound handlers for eventBridge (needed for off())
+	private onPauseRequested = () => { this.scene.pause(); this.physics.pause(); };
+	private onResumeRequested = () => { this.scene.resume(); this.physics.resume(); };
 
 	constructor() {
 		super('DungeonScene');
@@ -37,18 +43,15 @@ export class DungeonScene extends Scene {
 		// Generate and render dungeon
 		this.generateDungeon();
 
-		// Pause/resume listeners
-		eventBridge.on(GameEvents.PAUSE_REQUESTED, () => {
-			this.scene.pause();
-			this.physics.pause();
-		});
-		eventBridge.on(GameEvents.RESUME_REQUESTED, () => {
-			this.scene.resume();
-			this.physics.resume();
-		});
+		// Pause/resume listeners (stored as instance methods for cleanup)
+		eventBridge.on(GameEvents.PAUSE_REQUESTED, this.onPauseRequested);
+		eventBridge.on(GameEvents.RESUME_REQUESTED, this.onResumeRequested);
 
 		// Listen for player attack events
 		this.events.on('player-attack', this.handlePlayerAttack, this);
+
+		// Listen for just-dodge slow-mo (managed here for safe cleanup)
+		this.events.on('just-dodge-triggered', this.handleJustDodgeSlowMo, this);
 
 		eventBridge.emit(GameEvents.CURRENT_SCENE_READY, { scene: 'DungeonScene' });
 		eventBridge.emit(GameEvents.DUNGEON_FLOOR_CHANGED, this.currentFloor);
@@ -117,6 +120,7 @@ export class DungeonScene extends Scene {
 				spawn.y * TILE_SIZE + TILE_SIZE / 2
 			);
 			enemy.setTarget(this.player);
+			enemy.setDungeonMap(this.dungeonMap);
 			this.enemies.push(enemy);
 		}
 
@@ -214,6 +218,7 @@ export class DungeonScene extends Scene {
 
 		this.inputManager.postUpdate();
 		this.checkStairsInteraction();
+		this.checkSlowMoEnd();
 
 		// ESC to return to hub
 		if (this.inputManager.isActionJustPressed(InputAction.PAUSE)) {
@@ -247,11 +252,21 @@ export class DungeonScene extends Scene {
 			onComplete: () => hitCircle.destroy(),
 		});
 
-		// Check hit against enemies using cartesian distance
+		// Check hit against enemies using cartesian distance + line of sight
+		const playerTileX = this.player.cartX / TILE_SIZE;
+		const playerTileY = this.player.cartY / TILE_SIZE;
+
 		for (const enemy of this.enemies) {
 			if (!enemy.active || enemy.health.isDead) continue;
 			const dist = Phaser.Math.Distance.Between(data.cartX, data.cartY, enemy.cartX, enemy.cartY);
 			if (dist < data.range + 12) {
+				// Line of sight check: don't hit through walls
+				const enemyTileX = enemy.cartX / TILE_SIZE;
+				const enemyTileY = enemy.cartY / TILE_SIZE;
+				if (!this.dungeonMap.hasLineOfSight(playerTileX, playerTileY, enemyTileX, enemyTileY)) {
+					continue;
+				}
+
 				const dx = enemy.cartX - this.player.cartX;
 				const dy = enemy.cartY - this.player.cartY;
 				const len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -300,7 +315,37 @@ export class DungeonScene extends Scene {
 		});
 	}
 
+	private handleJustDodgeSlowMo(): void {
+		const scale = PLAYER_CONFIG.justDodgeSlowMoScale;
+		this.time.timeScale = scale;
+		this.physics.world.timeScale = 1 / scale; // physics uses inverse scale
+		this.tweens.timeScale = scale;
+		this.cameras.main.flash(100, 100, 150, 255);
+		// Use real-time clock to avoid timeScale affecting the restoration delay
+		this.slowMoEndTime = performance.now() + PLAYER_CONFIG.justDodgeSlowMoMs;
+	}
+
+	/** Called from update() to check if slow-mo should end (real-time based) */
+	private checkSlowMoEnd(): void {
+		if (this.slowMoEndTime > 0 && performance.now() >= this.slowMoEndTime) {
+			this.time.timeScale = 1.0;
+			this.physics.world.timeScale = 1.0;
+			this.tweens.timeScale = 1.0;
+			this.slowMoEndTime = 0;
+		}
+	}
+
 	private cleanup(): void {
+		// Restore all timeScales on cleanup
+		this.time.timeScale = 1.0;
+		this.physics.world.timeScale = 1.0;
+		this.tweens.timeScale = 1.0;
+		this.slowMoEndTime = 0;
+		// Remove event listeners to prevent accumulation on restart
+		this.events.off('player-attack', this.handlePlayerAttack, this);
+		this.events.off('just-dodge-triggered', this.handleJustDodgeSlowMo, this);
+		eventBridge.off(GameEvents.PAUSE_REQUESTED, this.onPauseRequested);
+		eventBridge.off(GameEvents.RESUME_REQUESTED, this.onResumeRequested);
 		this.enemies.forEach((e) => e.destroy());
 		this.enemies = [];
 		this.wallBodies?.clear(true, true);

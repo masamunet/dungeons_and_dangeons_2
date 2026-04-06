@@ -47,6 +47,10 @@ export class StaminaComponent {
 		}
 	}
 
+	recover(amount: number): void {
+		this.current = Math.min(this.max, this.current + amount);
+	}
+
 	canSpend(amount: number): boolean {
 		return this.current >= amount && !this.isExhausted;
 	}
