@@ -67,7 +67,8 @@
 
 	function getGridForCurrentTree(): SkillDef[][] {
 		const skills = getSkillsForTree(activeTree);
-		const grid: SkillDef[][] = [[], [], []];
+		const maxRow = skills.reduce((max, s) => Math.max(max, s.row), 0);
+		const grid: SkillDef[][] = Array.from({ length: maxRow + 1 }, () => []);
 		for (const s of skills) {
 			grid[s.row].push(s);
 		}
@@ -275,7 +276,7 @@
 		<!-- Skill grid -->
 		<div class="flex-1 overflow-y-auto p-4">
 			<div class="grid gap-3">
-				{#each [0, 1, 2] as row}
+				{#each Array.from({ length: getGridForCurrentTree().length }, (_, i) => i) as row}
 					<div class="flex justify-center gap-4">
 						{#each getSkillsForTree(activeTree).filter(s => s.row === row) as skill}
 							{@const level = getSkillLevel(skill.id)}

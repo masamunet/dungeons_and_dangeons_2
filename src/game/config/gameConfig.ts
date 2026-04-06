@@ -48,5 +48,9 @@ export const ENEMY_CONFIG = {
 		attackActive: 200,
 		attackRecovery: 500,
 		knockback: 60,
+
+		// Stagger
+		staggerChance: 0.2,
+		staggerDurationMs: 500,
 	},
 };

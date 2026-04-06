@@ -25,6 +25,7 @@ export class Player extends Entity {
 	private iframeDuration = 0;
 
 	// Guard / Parry
+	private static readonly GUARD_TINT = Player.GUARD_TINT;
 	private guardStartTime = 0;
 
 	// Just Dodge
@@ -226,7 +227,7 @@ export class Player extends Entity {
 		if (this.currentState === 'guarding') return;
 		this.setState('guarding');
 		this.guardStartTime = this.scene.time.now;
-		this.setVisualTint(0x4488ff);
+		this.setVisualTint(Player.GUARD_TINT);
 	}
 
 	private handleGuardState(): void {
@@ -292,7 +293,7 @@ export class Player extends Entity {
 			this.scene.cameras.main.flash(80, 255, 255, 255);
 			this.setVisualTint(0xffffff);
 			this.scene.time.delayedCall(150, () => {
-				if (this.currentState === 'guarding') this.setVisualTint(0x4488ff);
+				if (this.currentState === 'guarding') this.setVisualTint(Player.GUARD_TINT);
 				else this.clearVisualTint();
 			});
 			if (attackingEnemy && !attackingEnemy.isInState('dead')) {
@@ -312,7 +313,7 @@ export class Player extends Entity {
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 0.3, knockbackY * 0.3);
 				this.setVisualTint(0x2266cc);
 				this.scene.time.delayedCall(100, () => {
-					if (this.currentState === 'guarding') this.setVisualTint(0x4488ff);
+					if (this.currentState === 'guarding') this.setVisualTint(Player.GUARD_TINT);
 				});
 				return;
 			}
@@ -329,7 +330,8 @@ export class Player extends Entity {
 				this.setState('staggered');
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 1.5, knockbackY * 1.5);
 				this.setVisualTint(0xff8800);
-				// Stagger visual: wobble tween
+				// Kill existing wobble tweens before adding new one
+				this.scene.tweens.killTweensOf(this.visual);
 				this.scene.tweens.add({
 					targets: this.visual,
 					x: { value: '+=3', yoyo: true, repeat: 3, duration: 60 },

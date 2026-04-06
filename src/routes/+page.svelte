@@ -35,8 +35,11 @@
 			closeSkillTree();
 			return;
 		}
-		// Don't let other keys propagate to game when skill tree is open
-		// (SkillTree has its own keydown handler for WASD/arrows/etc.)
+		// Block game input while skill tree is open
+		if (showSkillTree) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
 	}
 
 	function pollGamepad() {
@@ -53,14 +56,20 @@
 		if (buttons[8] && !prevGamepadButtons[8]) {
 			toggleSkillTree();
 		}
-		// Button 1 = B/Circle -> close skill tree / close dialogue
-		if (buttons[1] && !prevGamepadButtons[1]) {
-			if (showSkillTree) closeSkillTree();
-			eventBridge.emit('gamepad-cancel');
+
+		// When skill tree is open, only handle close buttons here.
+		// All other gamepad input is handled by SkillTree.svelte.
+		if (showSkillTree) {
+			if (buttons[1] && !prevGamepadButtons[1]) closeSkillTree();
+			if (buttons[9] && !prevGamepadButtons[9]) closeSkillTree();
+			prevGamepadButtons = buttons;
+			gamepadPollId = requestAnimationFrame(pollGamepad);
+			return;
 		}
-		// Button 9 = Start -> close skill tree (like ESC)
-		if (buttons[9] && !prevGamepadButtons[9]) {
-			if (showSkillTree) closeSkillTree();
+
+		// Button 1 = B/Circle -> close dialogue
+		if (buttons[1] && !prevGamepadButtons[1]) {
+			eventBridge.emit('gamepad-cancel');
 		}
 
 		prevGamepadButtons = buttons;
@@ -72,13 +81,13 @@
 	}
 
 	onMount(() => {
-		window.addEventListener('keydown', onKeyDown);
+		window.addEventListener('keydown', onKeyDown, { capture: true });
 		eventBridge.on(GameEvents.ENEMY_KILLED, onEnemyKilled);
 		gamepadPollId = requestAnimationFrame(pollGamepad);
 	});
 
 	onDestroy(() => {
-		window.removeEventListener('keydown', onKeyDown);
+		window.removeEventListener('keydown', onKeyDown, { capture: true });
 		eventBridge.off(GameEvents.ENEMY_KILLED, onEnemyKilled);
 		if (gamepadPollId !== null) cancelAnimationFrame(gamepadPollId);
 	});

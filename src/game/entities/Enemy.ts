@@ -2,7 +2,7 @@ import { Scene } from 'phaser';
 import { Entity } from './Entity';
 import type { Player } from './Player';
 import type { DungeonMap } from '../map/DungeonMap';
-import { ENEMY_CONFIG, PLAYER_CONFIG } from '../config/gameConfig';
+import { ENEMY_CONFIG } from '../config/gameConfig';
 import { TILE_SIZE } from '$lib/utils/constants';
 import { eventBridge, GameEvents } from '$lib/utils/eventBridge';
 
@@ -203,12 +203,7 @@ export class Enemy extends Entity {
 			// Check just-dodge: if player is in just-dodge window during enemy attack
 			if (this.target.isInJustDodgeWindow()) {
 				this.target.markJustDodgeTriggered();
-				// Trigger slow-mo effect
-				this.scene.time.timeScale = 0.3;
-				this.scene.cameras.main.flash(100, 100, 150, 255);
-				this.scene.time.delayedCall(PLAYER_CONFIG.justDodgeSlowMoMs, () => {
-					this.scene.time.timeScale = 1.0;
-				});
+				this.scene.events.emit('just-dodge-triggered');
 				return; // Attack misses
 			}
 
@@ -229,7 +224,8 @@ export class Enemy extends Entity {
 		(this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
 		this.setVisualTint(0xffff00);
 		this.setState('staggered');
-		// Wobble tween for stun visual
+		// Kill existing wobble tweens before adding new one
+		this.scene.tweens.killTweensOf(this.visual);
 		this.scene.tweens.add({
 			targets: this.visual,
 			x: { value: '+=3', yoyo: true, repeat: 5, duration: 50 },
@@ -240,9 +236,11 @@ export class Enemy extends Entity {
 		if (this.isInState('dead')) return;
 		this.health.takeDamage(damage);
 		if (!this.health.isDead) {
-			// Stagger check for enemies too
-			if (Math.random() < PLAYER_CONFIG.staggerChance) {
-				this.applyStun(PLAYER_CONFIG.staggerDurationMs);
+			// Stagger check using enemy-specific config
+			if (Math.random() < this.config.staggerChance) {
+				// Apply knockback even when staggered (stronger)
+				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX * 1.5, knockbackY * 1.5);
+				this.applyStun(this.config.staggerDurationMs);
 			} else {
 				(this.body as Phaser.Physics.Arcade.Body).setVelocity(knockbackX, knockbackY);
 				this.setVisualTint(0xff0000);

@@ -10,6 +10,7 @@ import { Enemy } from '../entities/Enemy';
 import { TileType, type DungeonMap } from '../map/DungeonMap';
 import { cartToIso } from '../iso/IsoHelper';
 import { fetchFlavorTextAsync } from '$lib/utils/geminiClient';
+import { PLAYER_CONFIG } from '../config/gameConfig';
 import { FogOfWar } from '../systems/FogOfWar';
 import { TorchLight } from '../systems/TorchLight';
 
@@ -23,6 +24,7 @@ export class DungeonScene extends Scene {
 	private mapRenderer: MapRenderer | null = null;
 	private fogOfWar: FogOfWar | null = null;
 	private torchLight: TorchLight | null = null;
+	private slowMoTimer: Phaser.Time.TimerEvent | null = null;
 
 	constructor() {
 		super('DungeonScene');
@@ -49,6 +51,9 @@ export class DungeonScene extends Scene {
 
 		// Listen for player attack events
 		this.events.on('player-attack', this.handlePlayerAttack, this);
+
+		// Listen for just-dodge slow-mo (managed here for safe cleanup)
+		this.events.on('just-dodge-triggered', this.handleJustDodgeSlowMo, this);
 
 		eventBridge.emit(GameEvents.CURRENT_SCENE_READY, { scene: 'DungeonScene' });
 		eventBridge.emit(GameEvents.DUNGEON_FLOOR_CHANGED, this.currentFloor);
@@ -311,7 +316,31 @@ export class DungeonScene extends Scene {
 		});
 	}
 
+	private handleJustDodgeSlowMo(): void {
+		// Cancel any existing slow-mo timer
+		if (this.slowMoTimer) {
+			this.slowMoTimer.destroy();
+			this.slowMoTimer = null;
+		}
+		this.time.timeScale = 0.3;
+		this.cameras.main.flash(100, 100, 150, 255);
+		// Use a real-time delayed call (not affected by timeScale)
+		this.slowMoTimer = this.time.addEvent({
+			delay: PLAYER_CONFIG.justDodgeSlowMoMs / 0.3, // compensate for timeScale
+			callback: () => {
+				this.time.timeScale = 1.0;
+				this.slowMoTimer = null;
+			},
+		});
+	}
+
 	private cleanup(): void {
+		// Restore timeScale on cleanup
+		this.time.timeScale = 1.0;
+		if (this.slowMoTimer) {
+			this.slowMoTimer.destroy();
+			this.slowMoTimer = null;
+		}
 		this.enemies.forEach((e) => e.destroy());
 		this.enemies = [];
 		this.wallBodies?.clear(true, true);

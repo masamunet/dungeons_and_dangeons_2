@@ -51,7 +51,7 @@ export class DungeonMap {
 
 	isWalkable(x: number, y: number): boolean {
 		const tile = this.getTile(x, y);
-		return tile === TileType.FLOOR || tile === TileType.CORRIDOR || tile === TileType.STAIRS_DOWN;
+		return tile === TileType.FLOOR || tile === TileType.CORRIDOR || tile === TileType.DOOR || tile === TileType.STAIRS_DOWN;
 	}
 
 	getStartRoom(): Room {
@@ -61,12 +61,15 @@ export class DungeonMap {
 	/**
 	 * Check line of sight between two tile coordinates using Bresenham's algorithm.
 	 * Returns true if there are no walls between the two points.
+	 * Skips both start and end tiles (entities may stand adjacent to walls).
 	 */
 	hasLineOfSight(x0: number, y0: number, x1: number, y1: number): boolean {
-		let ix0 = Math.floor(x0);
-		let iy0 = Math.floor(y0);
+		const startTileX = Math.floor(x0);
+		const startTileY = Math.floor(y0);
 		const ix1 = Math.floor(x1);
 		const iy1 = Math.floor(y1);
+		let ix0 = startTileX;
+		let iy0 = startTileY;
 
 		const dx = Math.abs(ix1 - ix0);
 		const dy = Math.abs(iy1 - iy0);
@@ -75,11 +78,13 @@ export class DungeonMap {
 		let err = dx - dy;
 
 		while (true) {
-			// Skip the start tile itself
-			if (!(ix0 === Math.floor(x0) && iy0 === Math.floor(y0))) {
+			// Skip start and end tiles (entities may be at wall edges)
+			const isStart = ix0 === startTileX && iy0 === startTileY;
+			const isEnd = ix0 === ix1 && iy0 === iy1;
+			if (!isStart && !isEnd) {
 				if (!this.isWalkable(ix0, iy0)) return false;
 			}
-			if (ix0 === ix1 && iy0 === iy1) break;
+			if (isEnd) break;
 			const e2 = 2 * err;
 			if (e2 > -dy) { err -= dy; ix0 += sx; }
 			if (e2 < dx) { err += dx; iy0 += sy; }
